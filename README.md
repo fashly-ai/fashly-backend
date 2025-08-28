@@ -9,6 +9,7 @@ A robust NestJS-based authentication API with JWT tokens, PostgreSQL database, a
 - **🔐 JWT Authentication**: Secure user registration and login system
 - **🗄️ PostgreSQL Database**: Robust data storage with TypeORM
 - **👤 User Management**: Complete user profile system
+- **📁 AWS S3 Integration**: Presigned URL generation for secure file uploads
 - **🛡️ Security**: Password hashing, input validation, CORS protection
 - **🐳 Docker Ready**: Complete containerized deployment with docker-compose
 - **📚 API Documentation**: Interactive Swagger/OpenAPI documentation
@@ -144,17 +145,48 @@ curl -X GET http://localhost:3000/auth/profile \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
+### 5. Generate S3 Presigned Upload URL (Protected)
+
+```bash
+curl -X POST http://localhost:3000/api/s3/presigned-upload-url \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fileName": "profile-picture.jpg",
+    "fileType": "image/jpeg",
+    "folder": "user-uploads",
+    "expiresIn": 3600,
+    "fileSize": 1048576
+  }'
+```
+
 **Response:**
 ```json
 {
-  "id": "uuid",
-  "email": "john@example.com",
-  "firstName": "John",
-  "lastName": "Doe",
-  "fullName": "John Doe",
-  "isActive": true,
-  "createdAt": "2024-01-15T10:30:00.000Z"
+  "uploadUrl": "https://your-bucket.s3.amazonaws.com/user-uploads/1704067200000_abc123_profile-picture.jpg?...",
+  "downloadUrl": "https://your-bucket.s3.amazonaws.com/user-uploads/1704067200000_abc123_profile-picture.jpg?...",
+  "key": "user-uploads/1704067200000_abc123_profile-picture.jpg",
+  "bucket": "your-bucket",
+  "expiresIn": 3600,
+  "user": {
+    "id": "uuid",
+    "email": "john@example.com"
+  },
+  "instructions": {
+    "upload": "Use the uploadUrl with a PUT request to upload your file directly to S3",
+    "download": "Use the downloadUrl to access the uploaded file (valid for 24 hours)",
+    "contentType": "Make sure to set Content-Type header when uploading"
+  }
 }
+```
+
+### 6. Upload File to S3 (Using Presigned URL)
+
+```bash
+# Upload file using the presigned URL from step 5
+curl -X PUT "https://your-bucket.s3.amazonaws.com/user-uploads/1704067200000_abc123_profile-picture.jpg?..." \
+  -H "Content-Type: image/jpeg" \
+  --data-binary @profile-picture.jpg
 ```
 
 ## 🏗️ Architecture
@@ -164,6 +196,7 @@ curl -X GET http://localhost:3000/auth/profile \
 - **Framework**: NestJS (TypeScript)
 - **Database**: PostgreSQL 15 with TypeORM
 - **Authentication**: JWT with Passport.js
+- **File Storage**: AWS S3 with presigned URLs
 - **Validation**: class-validator & class-transformer
 - **Documentation**: Swagger/OpenAPI
 - **Deployment**: Docker & Docker Compose
@@ -220,6 +253,13 @@ src/
 │   └── dto/
 │       ├── signup.dto.ts         # User registration DTO
 │       └── signin.dto.ts         # User login DTO
+├── s3/                           # AWS S3 integration
+│   ├── s3.controller.ts          # S3 presigned URL endpoints
+│   ├── s3.service.ts             # S3 operations & validation
+│   ├── s3.module.ts              # S3 module configuration
+│   └── dto/
+│       ├── generate-presigned-url.dto.ts    # Upload URL DTO
+│       └── generate-download-url.dto.ts     # Download URL DTO
 └── database/                     # Database configuration
     ├── database.module.ts        # TypeORM configuration
     └── entities/
@@ -242,6 +282,12 @@ DB_NAME=auth_api
 # JWT Configuration
 JWT_SECRET=your-super-secret-jwt-key-change-in-production
 JWT_EXPIRATION=24h
+
+# AWS S3 Configuration
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your-aws-access-key-id
+AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
+AWS_S3_BUCKET=your-s3-bucket-name
 
 # Application Configuration
 NODE_ENV=development
@@ -405,6 +451,8 @@ pnpm run test:cov
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/auth/profile` | Get user profile |
+| POST | `/api/s3/presigned-upload-url` | Generate S3 presigned upload URL |
+| POST | `/api/s3/presigned-download-url` | Generate S3 presigned download URL |
 
 ## 🐛 Troubleshooting
 
