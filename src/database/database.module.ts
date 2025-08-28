@@ -19,7 +19,10 @@ import { User } from './entities/user.entity';
         migrations: ['dist/database/migrations/*.js'],
         migrationsRun: true, // Auto-run migrations on startup
         logging: configService.get('NODE_ENV') === 'development',
-        ssl: configService.get('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
+        ssl:
+          configService.get('NODE_ENV') === 'production'
+            ? { rejectUnauthorized: false }
+            : false,
       }),
       inject: [ConfigService],
     }),

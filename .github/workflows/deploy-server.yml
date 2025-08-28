@@ -1,0 +1,100 @@
+name: Deploy to Server
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_host:
+        description: 'Server hostname or IP'
+        required: false
+        default: ''
+      force_restart:
+        description: 'Force restart even if no changes'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  deploy-to-server:
+    name: Deploy to Remote Server
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ github.event.inputs.server_host || secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            # Navigate to application directory
+            cd ${{ secrets.APP_DIRECTORY || '/opt/fashly-backend' }}
+            
+            # Pull latest changes from main branch
+            echo "🔄 Pulling latest changes..."
+            git fetch origin
+            git reset --hard origin/main
+            
+            # Create .env file from GitHub secrets
+            echo "🔧 Creating .env file from secrets..."
+            cat > .env << EOF
+            # Database Configuration
+            DB_HOST=${{ secrets.DB_HOST || 'localhost' }}
+            DB_PORT=${{ secrets.DB_PORT || '5432' }}
+            DB_USERNAME=${{ secrets.DB_USERNAME || 'postgres' }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_NAME=${{ secrets.DB_NAME || 'fashly' }}
+            
+            # JWT Configuration
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_EXPIRATION=${{ secrets.JWT_EXPIRATION || '24h' }}
+            
+            # AWS S3 Configuration
+            AWS_REGION=${{ secrets.AWS_REGION || 'us-east-1' }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }}
+            
+            # Application Configuration
+            NODE_ENV=${{ secrets.NODE_ENV || 'production' }}
+            PORT=${{ secrets.PORT || '3000' }}
+            EOF
+            
+            # Set proper permissions for .env file
+            chmod 600 .env
+            echo "✅ Environment file created successfully"
+            
+            # Install/update dependencies
+            echo "📦 Installing dependencies..."
+            pnpm install --frozen-lockfile
+            
+            # Run database migrations
+            echo "🗄️ Running database migrations..."
+            pnpm run migration:run
+            
+            # Build application
+            echo "🔨 Building application..."
+            pnpm run build
+            
+            # Restart the application service
+            echo "🚀 Restarting application..."
+            sudo systemctl restart fashly-backend
+            
+            # Wait for service to start
+            sleep 10
+            
+            # Check if service is running
+            if sudo systemctl is-active --quiet fashly-backend; then
+              echo "✅ Deployment successful! Service is running."
+            else
+              echo "❌ Deployment failed! Service is not running."
+              sudo systemctl status fashly-backend
+              exit 1
+            fi
+            
+            # Optional: Run health check
+            if curl -f http://localhost:3000 > /dev/null 2>&1; then
+              echo "✅ Health check passed!"
+            else
+              echo "⚠️ Health check failed, but service is running."
+            fi

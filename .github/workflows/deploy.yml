@@ -1,0 +1,113 @@
+name: CI/CD Testing
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  test:
+    name: Test Application
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: fashly
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create .env file for testing
+        run: |
+          cat > .env << EOF
+          # Database Configuration
+          DB_HOST=localhost
+          DB_PORT=5432
+          DB_USERNAME=postgres
+          DB_PASSWORD=postgres
+          DB_NAME=fashly
+          
+          # JWT Configuration
+          JWT_SECRET=test-jwt-secret-for-ci-only
+          JWT_EXPIRATION=24h
+          
+          # AWS S3 Configuration (using fake values for testing)
+          AWS_REGION=us-east-1
+          AWS_ACCESS_KEY_ID=test-key
+          AWS_SECRET_ACCESS_KEY=test-secret
+          AWS_S3_BUCKET=test-bucket
+          
+          # Application Configuration
+          NODE_ENV=test
+          PORT=3000
+          EOF
+
+      - name: Run database migrations
+        run: pnpm run migration:run
+
+      - name: Build application
+        run: pnpm run build
+
+      - name: Run tests
+        run: pnpm run test
+
+      - name: Start application (background)
+        run: |
+          nohup pnpm run start:prod > app.log 2>&1 &
+          echo $! > app.pid
+          sleep 10
+
+      - name: Health check
+        run: |
+          # Wait for app to start
+          timeout 60 bash -c 'until curl -f http://localhost:3000 > /dev/null 2>&1; do sleep 2; done'
+          
+          # Test health endpoint
+          curl -f http://localhost:3000 || exit 1
+          
+          echo "✅ Application is running successfully!"
+
+      - name: Stop application
+        run: |
+          if [ -f app.pid ]; then
+            kill $(cat app.pid) || true
+            rm app.pid
+          fi
+
+      - name: Archive logs
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: application-logs
+          path: |
+            app.log
+            *.log
