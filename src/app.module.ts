@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { S3Module } from './s3/s3.module';
+import { VirtualTryOnModule } from './virtual-tryon/virtual-tryon.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { S3Module } from './s3/s3.module';
     DatabaseModule,
     AuthModule,
     S3Module,
+    VirtualTryOnModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -65,6 +65,9 @@ export class S3Service {
   async generatePresignedUploadUrl(
     options: GeneratePresignedUrlOptions,
   ): Promise<PresignedUrlResponse> {
+    if (!this.s3Client) {
+      throw new Error('S3 service not configured. Please set AWS environment variables.');
+    }
     const {
       fileName,
       fileType,
@@ -123,6 +126,9 @@ export class S3Service {
     key: string,
     expiresIn: number = 3600,
   ): Promise<string> {
+    if (!this.s3Client) {
+      throw new Error('S3 service not configured. Please set AWS environment variables.');
+    }
     try {
       const command = new GetObjectCommand({
         Bucket: this.bucketName,
