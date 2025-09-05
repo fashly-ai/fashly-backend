@@ -515,6 +515,356 @@ export class CrawlingService {
     }
   }
 
+  async crawlGentleMonsterSunglasses(): Promise<CrawlingResultDto> {
+    this.logger.log('Starting Gentle Monster sunglasses crawling...');
+
+    let browser: Browser | undefined;
+    let page: Page;
+
+    try {
+      // Launch browser
+      browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+          '--disable-gpu',
+        ],
+      });
+      page = await browser.newPage();
+
+      // Set user agent
+      await page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      );
+
+      // Set viewport
+      await page.setViewport({ width: 1920, height: 1080 });
+
+      // Navigate to the sunglasses page with hardcoded limit=1000 to load all products
+      const url = 'https://www.gentlemonster.com/us/en/category/sunglasses/view-all?limit=1000';
+      this.logger.log(`Navigating to: ${url}`);
+
+      await page.goto(url, {
+        waitUntil: 'networkidle2',
+        timeout: 30000,
+      });
+
+      // Handle cookie consent popup
+      try {
+        // Wait for cookie popup to appear and click "ACCEPT ALL"
+        const acceptButton = await page.waitForSelector('button', { timeout: 5000 });
+        
+        // Find and click the ACCEPT ALL button by text content
+        const acceptClicked = await page.evaluate(() => {
+          const buttons = Array.from(document.querySelectorAll('button'));
+          const acceptButton = buttons.find(btn => 
+            btn.textContent?.includes('ACCEPT ALL') || 
+            btn.textContent?.includes('Accept All') ||
+            btn.textContent?.includes('ACCEPT') ||
+            btn.getAttribute('data-testid')?.includes('accept')
+          );
+          if (acceptButton) {
+            (acceptButton as HTMLElement).click();
+            return true;
+          }
+          return false;
+        });
+
+        if (acceptClicked) {
+          this.logger.log('Clicked ACCEPT ALL for cookies');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      } catch (cookieError) {
+        this.logger.log('No cookie popup found or already accepted');
+      }
+
+      // Handle "Load More" button to get all products
+      this.logger.log('Handling Load More button to get all products...');
+      let loadMoreClicks = 0;
+      const maxLoadMoreClicks = 20; // Safety limit
+
+      while (loadMoreClicks < maxLoadMoreClicks) {
+        try {
+          // Look for "More" button
+          const moreButtonExists = await page.evaluate(() => {
+            const buttons = Array.from(document.querySelectorAll('button'));
+            return buttons.some(btn => 
+              btn.textContent?.includes('More') || 
+              btn.textContent?.includes('Load More') ||
+              btn.classList.contains('btn-more')
+            );
+          });
+
+          if (!moreButtonExists) {
+            this.logger.log('No more "Load More" button found, all products loaded');
+            break;
+          }
+
+          // Click the "More" button
+          const clicked = await page.evaluate(() => {
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const moreButton = buttons.find(btn => 
+              btn.textContent?.includes('More') || 
+              btn.textContent?.includes('Load More') ||
+              btn.classList.contains('btn-more')
+            );
+            if (moreButton && !(moreButton as HTMLButtonElement).disabled) {
+              (moreButton as HTMLElement).click();
+              return true;
+            }
+            return false;
+          });
+
+          if (clicked) {
+            loadMoreClicks++;
+            this.logger.log(`Clicked "Load More" button (${loadMoreClicks}/${maxLoadMoreClicks})`);
+            // Wait for new products to load
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          } else {
+            this.logger.log('Could not click "Load More" button, might be disabled or not found');
+            break;
+          }
+        } catch (error) {
+          this.logger.log(`Error clicking "Load More" button: ${(error as Error).message}`);
+          break;
+        }
+      }
+
+      // Wait for products to load
+      await page.waitForSelector('.product.visible', { timeout: 20000 });
+      
+      // Wait additional time for all products to load dynamically
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Add debugging to see how many products are found
+      const debugInfo = await page.evaluate(() => {
+        const selectors = [
+          '.product.visible',
+          '.product',
+          '[class*="product"]',
+          '.item',
+          '[data-product]',
+          '.product-item',
+          '.listing-item',
+          '[class*="item"]'
+        ];
+        
+        const results = {};
+        selectors.forEach(selector => {
+          const elements = document.querySelectorAll(selector);
+          results[selector] = elements.length;
+        });
+        
+        return { selectors: results };
+      });
+      
+      const productCount = debugInfo.selectors['.product.visible'] || 0;
+      this.logger.log(`Found ${productCount} sunglasses product elements`);
+
+      // Extract product data using the same logic as glasses
+      let products = await page.evaluate(() => {
+        // Find all links to item pages and work backwards to find product containers
+        const itemLinks = Array.from(document.querySelectorAll('a[href*="/item/"]'));
+        console.log(`Found ${itemLinks.length} item links on the page`);
+        
+        let productElements: HTMLElement[] = [];
+        
+        if (itemLinks.length > 8) {
+          // Use the item links to find their parent product containers
+          const linkBasedElements = itemLinks.map(link => {
+            // Try to find the closest product container
+            let parent = link.parentElement;
+            while (parent && parent !== document.body) {
+              if (parent.classList.contains('product') || 
+                  parent.classList.contains('item') ||
+                  parent.querySelector('img[src*="gentlemonster"]')) {
+                return parent as HTMLElement;
+              }
+              parent = parent.parentElement;
+            }
+            return link.closest('div') as HTMLElement;
+          }).filter((el): el is HTMLElement => el !== null);
+          
+          productElements = linkBasedElements;
+        } else {
+          // Fallback to traditional selectors
+          const selectors = [
+            '.product.visible',
+            '.product',
+            '[class*="product"]',
+            '.item',
+            '[data-product]',
+            '.product-item',
+            '.listing-item'
+          ];
+          
+          for (const selector of selectors) {
+            const elements = Array.from(document.querySelectorAll(selector)) as HTMLElement[];
+            if (elements.length > productElements.length) {
+              productElements = elements;
+            }
+          }
+        }
+        
+        console.log(`Processing ${productElements.length} sunglasses product elements...`);
+
+        const results: Array<{
+          name: string;
+          productUrl: string;
+          imageUrl: string;
+          price?: string;
+          allImages?: string[];
+        }> = [];
+
+        productElements.forEach((element, index) => {
+          try {
+            // Extract product name
+            const nameSelectors = [
+              'em.__className_bbeda3',
+              'em[class*="__className"]',
+              '.product-name',
+              '.item-name',
+              'h3',
+              'h4',
+              '.name',
+              'em'
+            ];
+            
+            let name = '';
+            for (const selector of nameSelectors) {
+              const nameElement = element.querySelector(selector);
+              if (nameElement?.textContent?.trim()) {
+                name = nameElement.textContent.trim();
+                break;
+              }
+            }
+
+            // Extract product URL
+            const linkElement = element.querySelector('a[href*="/item/"]');
+            let productUrl = linkElement?.getAttribute('href') || '';
+            if (productUrl && !productUrl.startsWith('http')) {
+              productUrl = `https://www.gentlemonster.com${productUrl}`;
+            }
+
+            // Extract image URL
+            const imageSelectors = [
+              '.swiper-slide img',
+              'img',
+              '[class*="image"] img',
+              '[class*="photo"] img'
+            ];
+            
+            let imageUrl = '';
+            for (const selector of imageSelectors) {
+              const imgElement = element.querySelector(selector);
+              const src = imgElement?.getAttribute('src') || imgElement?.getAttribute('data-src');
+              if (src && src.includes('gentlemonster')) {
+                imageUrl = src;
+                break;
+              }
+            }
+            if (imageUrl && !imageUrl.startsWith('http')) {
+              imageUrl = `https://www.gentlemonster.com${imageUrl}`;
+            }
+
+            // Extract price
+            const priceSelectors = [
+              'p.__className_bbeda3',
+              'p[class*="__className"]',
+              '.price',
+              '.product-price',
+              '.item-price',
+              'p'
+            ];
+            
+            let price = '';
+            for (const selector of priceSelectors) {
+              const priceElement = element.querySelector(selector);
+              const priceText = priceElement?.textContent?.trim();
+              if (priceText && (priceText.includes('$') || priceText.includes('₫'))) {
+                price = priceText;
+                break;
+              }
+            }
+
+            // Extract all images from carousel
+            const allImages: string[] = [];
+            const swiperSlides = element.querySelectorAll('.swiper-slide img');
+            swiperSlides.forEach(img => {
+              const src = img.getAttribute('src') || img.getAttribute('data-src');
+              if (src && src.includes('gentlemonster') && !src.includes('PACKAGE')) {
+                allImages.push(src);
+              }
+            });
+
+            if (name && productUrl && imageUrl) {
+              results.push({
+                name: name,
+                productUrl: productUrl,
+                imageUrl: imageUrl,
+                price: price,
+                allImages: allImages.length > 0 ? allImages : undefined,
+              });
+            }
+          } catch (error) {
+            console.log('Error processing sunglasses product element:', error);
+          }
+        });
+
+        // Remove duplicates
+        const uniqueResults: Array<{
+          name: string;
+          productUrl: string;
+          imageUrl: string;
+          price?: string;
+          allImages?: string[];
+        }> = [];
+        const seenUrls = new Set<string>();
+        
+        results.forEach(product => {
+          if (!seenUrls.has(product.productUrl)) {
+            seenUrls.add(product.productUrl);
+            uniqueResults.push(product);
+          }
+        });
+        
+        console.log(`After deduplication: ${uniqueResults.length} unique sunglasses products`);
+        return uniqueResults;
+      });
+
+      await browser.close();
+
+      // Save products to database with "Sunglasses" category
+      const savedProducts = await this.saveProductsToDatabase(products, 'Sunglasses');
+
+      const result: CrawlingResultDto = {
+        products: products,
+        totalCount: products.length,
+        crawledAt: new Date().toISOString(),
+      };
+
+      this.logger.log(
+        `Sunglasses crawling completed successfully. Found ${products.length} products, saved ${savedProducts.length} to database.`,
+      );
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Failed to crawl Gentle Monster Sunglasses: ${(error as Error).message}`,
+      );
+      throw new Error(`Failed to crawl Gentle Monster Sunglasses: ${(error as Error).message}`);
+    } finally {
+      if (browser) {
+        await browser.close();
+      }
+    }
+  }
+
   async crawlWithCustomSelectors(
     url: string,
     productSelector: string,
@@ -631,6 +981,7 @@ export class CrawlingService {
 
   private async saveProductsToDatabase(
     products: CrawledProductDto[],
+    category: string = 'Glasses',
   ): Promise<Glasses[]> {
     this.logger.log(`Saving ${products.length} products to database...`);
 

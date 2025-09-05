@@ -30,6 +30,25 @@ export class CrawlingController {
   }
 
   @Public()
+  @Get('gentle-monster-sunglasses')
+  @ApiOperation({
+    summary: 'Crawl Gentle Monster sunglasses',
+    description: 'Crawls all sunglasses from Gentle Monster website and returns product data including names, URLs, and image URLs',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully crawled sunglasses products',
+    type: CrawlingResultDto,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error during crawling',
+  })
+  async crawlGentleMonsterSunglasses(): Promise<CrawlingResultDto> {
+    return this.crawlingService.crawlGentleMonsterSunglasses();
+  }
+
+  @Public()
   @Post('custom')
   @ApiOperation({
     summary: 'Crawl with custom selectors',
