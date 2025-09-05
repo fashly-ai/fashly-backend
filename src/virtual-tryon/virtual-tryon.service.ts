@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HfInference } from '@huggingface/inference';
@@ -26,9 +28,11 @@ export class VirtualTryOnService {
 
   constructor(private configService: ConfigService) {
     const hfToken = this.configService.get<string>('HF_TOKEN');
-    
+
     if (!hfToken || hfToken === 'your-huggingface-token-here') {
-      this.logger.warn('HF_TOKEN not configured - Virtual Try-On features will be limited');
+      this.logger.warn(
+        'HF_TOKEN not configured - Virtual Try-On features will be limited',
+      );
       // Initialize without token for public models
       this.hfClient = new HfInference();
     } else {
@@ -39,13 +43,19 @@ export class VirtualTryOnService {
 
   async performVirtualTryOn(request: TryOnRequest): Promise<TryOnResult> {
     const startTime = Date.now();
-    
+
     try {
       this.logger.log('Starting virtual try-on process');
 
       // Optimize images for processing
-      const optimizedPersonImage = await this.optimizeImage(request.personImage, 'person');
-      const optimizedGarmentImage = await this.optimizeImage(request.garmentImage, 'garment');
+      const optimizedPersonImage = await this.optimizeImage(
+        request.personImage,
+        'person',
+      );
+      const optimizedGarmentImage = await this.optimizeImage(
+        request.garmentImage,
+        'garment',
+      );
 
       // Get original image metadata
       const originalMetadata = await sharp(request.personImage).metadata();
@@ -53,12 +63,16 @@ export class VirtualTryOnService {
       this.logger.log('Calling IDM-VTON model via Hugging Face Inference...');
 
       // Convert images to Blob format for HF Inference
-      const personBlob = new Blob([new Uint8Array(optimizedPersonImage)], { type: 'image/jpeg' });
-      const garmentBlob = new Blob([new Uint8Array(optimizedGarmentImage)], { type: 'image/jpeg' });
+      const personBlob = new Blob([new Uint8Array(optimizedPersonImage)], {
+        type: 'image/jpeg',
+      });
+      const garmentBlob = new Blob([new Uint8Array(optimizedGarmentImage)], {
+        type: 'image/jpeg',
+      });
 
       // Try different approaches for IDM-VTON
       let result: any;
-      
+
       try {
         // Approach 1: Try image-to-image with IDM-VTON
         this.logger.log('Attempting IDM-VTON via image-to-image...');
@@ -74,25 +88,34 @@ export class VirtualTryOnService {
           },
         });
       } catch (imageToImageError) {
-        this.logger.warn('Image-to-image failed, trying alternative approach:', imageToImageError.message);
-        
+        this.logger.warn(
+          'Image-to-image failed, trying alternative approach:',
+          imageToImageError.message,
+        );
+
         // Approach 2: Try using a working virtual try-on model
         try {
-          this.logger.log('Attempting with alternative virtual try-on model...');
+          this.logger.log(
+            'Attempting with alternative virtual try-on model...',
+          );
           result = await this.hfClient.imageToImage({
             model: 'levihsu/OOTDiffusion',
             inputs: personBlob,
             parameters: {
               prompt: `Person wearing garment, virtual try-on, realistic clothing fit`,
-              negative_prompt: 'blurry, distorted, low quality, deformed, bad anatomy',
+              negative_prompt:
+                'blurry, distorted, low quality, deformed, bad anatomy',
               guidance_scale: 7.5,
               num_inference_steps: 25,
               strength: 0.7,
             },
           });
         } catch (alternativeError) {
-          this.logger.warn('Alternative model failed, using basic approach:', alternativeError.message);
-          
+          this.logger.warn(
+            'Alternative model failed, using basic approach:',
+            alternativeError.message,
+          );
+
           // Approach 3: Fallback to text-to-image with description
           result = await this.hfClient.textToImage({
             model: 'stabilityai/stable-diffusion-2-1',
@@ -103,7 +126,7 @@ export class VirtualTryOnService {
 
       // Handle HF Inference response
       let resultBuffer: Buffer;
-      
+
       if (result instanceof Blob) {
         // Convert Blob to Buffer
         const arrayBuffer = await result.arrayBuffer();
@@ -124,9 +147,9 @@ export class VirtualTryOnService {
 
       // Validate the result is a proper image
       const processedMetadata = await sharp(resultBuffer).metadata();
-      
+
       const processingTime = Date.now() - startTime;
-      
+
       this.logger.log(`IDM-VTON processing completed in ${processingTime}ms`);
 
       return {
@@ -147,26 +170,35 @@ export class VirtualTryOnService {
     } catch (error) {
       const processingTime = Date.now() - startTime;
       this.logger.error('Error in virtual try-on process:', error);
-      
+
       if (error.response?.status === 503) {
-        throw new Error('Virtual try-on model is currently loading. Please try again in a few minutes.');
+        throw new Error(
+          'Virtual try-on model is currently loading. Please try again in a few minutes.',
+        );
       } else if (error.response?.status === 429) {
         throw new Error('Rate limit exceeded. Please try again later.');
       } else if (error.response?.status === 404) {
-        throw new Error('Virtual try-on service endpoint not found. The model may be unavailable.');
+        throw new Error(
+          'Virtual try-on service endpoint not found. The model may be unavailable.',
+        );
       } else if (error.code === 'ECONNABORTED') {
-        throw new Error('Virtual try-on processing timed out. Please try with smaller images.');
+        throw new Error(
+          'Virtual try-on processing timed out. Please try with smaller images.',
+        );
       }
-      
+
       throw new Error(`Virtual try-on failed: ${error.message}`);
     }
   }
 
-  private async optimizeImage(imageBuffer: Buffer, type: 'person' | 'garment'): Promise<Buffer> {
+  private async optimizeImage(
+    imageBuffer: Buffer,
+    type: 'person' | 'garment',
+  ): Promise<Buffer> {
     try {
       // Different optimization strategies for person vs garment images
       const targetSize = type === 'person' ? 768 : 512;
-      
+
       return await sharp(imageBuffer)
         .resize(targetSize, targetSize, {
           fit: 'inside',
@@ -184,7 +216,10 @@ export class VirtualTryOnService {
     }
   }
 
-  async validateImages(personImage: Buffer, garmentImage: Buffer): Promise<{ isValid: boolean; error?: string }> {
+  async validateImages(
+    personImage: Buffer,
+    garmentImage: Buffer,
+  ): Promise<{ isValid: boolean; error?: string }> {
     try {
       // Validate person image
       const personMetadata = await sharp(personImage).metadata();
@@ -193,7 +228,10 @@ export class VirtualTryOnService {
       }
 
       if (personMetadata.width < 256 || personMetadata.height < 256) {
-        return { isValid: false, error: 'Person image too small (minimum 256x256)' };
+        return {
+          isValid: false,
+          error: 'Person image too small (minimum 256x256)',
+        };
       }
 
       // Validate garment image
@@ -203,7 +241,10 @@ export class VirtualTryOnService {
       }
 
       if (garmentMetadata.width < 256 || garmentMetadata.height < 256) {
-        return { isValid: false, error: 'Garment image too small (minimum 256x256)' };
+        return {
+          isValid: false,
+          error: 'Garment image too small (minimum 256x256)',
+        };
       }
 
       // Check file formats

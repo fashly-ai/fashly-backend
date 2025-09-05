@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from './entities/user.entity';
+import { Glasses } from './entities/glasses.entity';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { User } from './entities/user.entity';
         username: configService.get('DB_USERNAME', 'postgres'),
         password: configService.get('DB_PASSWORD', 'password'),
         database: configService.get('DB_NAME', 'fashly'),
-        entities: [User],
+        entities: [User, Glasses],
         synchronize: false, // Use migrations instead
         migrations: ['dist/database/migrations/*.js'],
         migrationsRun: true, // Auto-run migrations on startup
@@ -26,7 +27,7 @@ import { User } from './entities/user.entity';
       }),
       inject: [ConfigService],
     }),
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Glasses]),
   ],
   exports: [TypeOrmModule],
 })

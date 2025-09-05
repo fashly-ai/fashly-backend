@@ -6,6 +6,7 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { S3Module } from './s3/s3.module';
 import { VirtualTryOnModule } from './virtual-tryon/virtual-tryon.module';
+import { CrawlingModule } from './crawling/crawling.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { VirtualTryOnModule } from './virtual-tryon/virtual-tryon.module';
     AuthModule,
     S3Module,
     VirtualTryOnModule,
+    CrawlingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
