@@ -1,12 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { Storage } from '@google-cloud/storage';
 
 export interface PresignedUrlResponse {
   uploadUrl: string;
@@ -26,47 +21,52 @@ export interface GeneratePresignedUrlOptions {
 @Injectable()
 export class S3Service {
   private readonly logger = new Logger(S3Service.name);
-  private readonly s3Client: S3Client;
+  private readonly storage: Storage;
   private readonly bucketName: string;
 
   constructor(private configService: ConfigService) {
-    const region = this.configService.get<string>('AWS_REGION', 'us-east-1');
-    const bucketName = this.configService.get<string>('AWS_S3_BUCKET');
-    const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
-    const secretAccessKey = this.configService.get<string>(
-      'AWS_SECRET_ACCESS_KEY',
-    );
+    const projectId = this.configService.get<string>('GCP_PROJECT_ID');
+    const bucketName = this.configService.get<string>('GCS_BUCKET_NAME');
+    const keyFilename = this.configService.get<string>('GCP_KEY_FILE');
 
     if (!bucketName) {
-      throw new Error('AWS_S3_BUCKET environment variable is required');
+      throw new Error('GCS_BUCKET_NAME environment variable is required');
     }
 
-    if (!accessKeyId || !secretAccessKey) {
-      throw new Error(
-        'AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables are required',
-      );
+    if (!projectId) {
+      throw new Error('GCP_PROJECT_ID environment variable is required');
     }
 
     this.bucketName = bucketName;
 
-    this.s3Client = new S3Client({
-      region,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
-    });
+    // Initialize Google Cloud Storage
+    const storageOptions: {
+      projectId: string;
+      keyFilename?: string;
+    } = {
+      projectId,
+    };
+
+    // If key file is provided, use it for authentication
+    if (keyFilename) {
+      storageOptions.keyFilename = keyFilename;
+    }
+    // Otherwise, use default credentials (e.g., from environment or metadata server)
+
+    this.storage = new Storage(storageOptions);
 
     this.logger.log(
-      `S3 Service initialized for bucket: ${this.bucketName}, region: ${region}`,
+      `GCS Service initialized for bucket: ${this.bucketName}, project: ${projectId}`,
     );
   }
 
   async generatePresignedUploadUrl(
     options: GeneratePresignedUrlOptions,
   ): Promise<PresignedUrlResponse> {
-    if (!this.s3Client) {
-      throw new Error('S3 service not configured. Please set AWS environment variables.');
+    if (!this.storage) {
+      throw new Error(
+        'GCS service not configured. Please set GCP environment variables.',
+      );
     }
     const {
       fileName,
@@ -82,29 +82,26 @@ export class S3Service {
     const key = `${folder}/${timestamp}_${randomString}_${sanitizedFileName}`;
 
     try {
+      const bucket = this.storage.bucket(this.bucketName);
+      const file = bucket.file(key);
+
       // Generate presigned URL for upload (PUT)
-      const putCommand = new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-        ContentType: fileType,
-        Metadata: {
-          'original-filename': fileName,
-          'upload-timestamp': timestamp.toString(),
+      const [uploadUrl] = await file.getSignedUrl({
+        version: 'v4',
+        action: 'write',
+        expires: Date.now() + expiresIn * 1000,
+        contentType: fileType,
+        extensionHeaders: {
+          'x-goog-meta-original-filename': fileName,
+          'x-goog-meta-upload-timestamp': timestamp.toString(),
         },
       });
 
-      const uploadUrl = await getSignedUrl(this.s3Client, putCommand, {
-        expiresIn,
-      });
-
       // Generate presigned URL for download (GET)
-      const getCommand = new GetObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-      });
-
-      const downloadUrl = await getSignedUrl(this.s3Client, getCommand, {
-        expiresIn: expiresIn * 24, // Download URL valid for longer
+      const [downloadUrl] = await file.getSignedUrl({
+        version: 'v4',
+        action: 'read',
+        expires: Date.now() + expiresIn * 24 * 1000, // Download URL valid for longer
       });
 
       this.logger.log(`Generated presigned URLs for key: ${key}`);
@@ -118,7 +115,9 @@ export class S3Service {
       };
     } catch (error) {
       this.logger.error('Error generating presigned URLs:', error);
-      throw new Error(`Failed to generate presigned URLs: ${error.message}`);
+      throw new Error(
+        `Failed to generate presigned URLs: ${(error as Error).message}`,
+      );
     }
   }
 
@@ -126,24 +125,28 @@ export class S3Service {
     key: string,
     expiresIn: number = 3600,
   ): Promise<string> {
-    if (!this.s3Client) {
-      throw new Error('S3 service not configured. Please set AWS environment variables.');
+    if (!this.storage) {
+      throw new Error(
+        'GCS service not configured. Please set GCP environment variables.',
+      );
     }
     try {
-      const command = new GetObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-      });
+      const bucket = this.storage.bucket(this.bucketName);
+      const file = bucket.file(key);
 
-      const downloadUrl = await getSignedUrl(this.s3Client, command, {
-        expiresIn,
+      const [downloadUrl] = await file.getSignedUrl({
+        version: 'v4',
+        action: 'read',
+        expires: Date.now() + expiresIn * 1000,
       });
 
       this.logger.log(`Generated download URL for key: ${key}`);
       return downloadUrl;
     } catch (error) {
       this.logger.error('Error generating download URL:', error);
-      throw new Error(`Failed to generate download URL: ${error.message}`);
+      throw new Error(
+        `Failed to generate download URL: ${(error as Error).message}`,
+      );
     }
   }
 
@@ -186,9 +189,9 @@ export class S3Service {
   }
 
   /**
-   * Get S3 object information
+   * Get GCS object public URL
    */
-  getS3ObjectUrl(key: string): string {
-    return `https://${this.bucketName}.s3.amazonaws.com/${key}`;
+  getGCSObjectUrl(key: string): string {
+    return `https://storage.googleapis.com/${this.bucketName}/${key}`;
   }
 }

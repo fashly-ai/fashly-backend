@@ -29,7 +29,7 @@ export class S3Controller {
   @ApiOperation({
     summary: 'Generate presigned URL for file upload',
     description:
-      'Generate a presigned URL that allows direct file upload to S3. The URL expires after the specified time.',
+      'Generate a presigned URL that allows direct file upload to Google Cloud Storage. The URL expires after the specified time.',
   })
   @ApiResponse({
     status: 200,
@@ -39,19 +39,19 @@ export class S3Controller {
       properties: {
         uploadUrl: {
           type: 'string',
-          description: 'Presigned URL for uploading the file to S3',
+          description: 'Presigned URL for uploading the file to GCS',
         },
         downloadUrl: {
           type: 'string',
-          description: 'Presigned URL for downloading the file from S3',
+          description: 'Presigned URL for downloading the file from GCS',
         },
         key: {
           type: 'string',
-          description: 'S3 object key/path where the file will be stored',
+          description: 'GCS object key/path where the file will be stored',
         },
         bucket: {
           type: 'string',
-          description: 'S3 bucket name',
+          description: 'GCS bucket name',
         },
         expiresIn: {
           type: 'number',
@@ -99,7 +99,7 @@ export class S3Controller {
       },
       instructions: {
         upload:
-          'Use the uploadUrl with a PUT request to upload your file directly to S3',
+          'Use the uploadUrl with a PUT request to upload your file directly to GCS',
         download:
           'Use the downloadUrl to access the uploaded file (valid for 24 hours)',
         contentType: 'Make sure to set Content-Type header when uploading',
@@ -112,7 +112,7 @@ export class S3Controller {
   @ApiOperation({
     summary: 'Generate presigned URL for file download',
     description:
-      'Generate a presigned URL for downloading a specific file from S3.',
+      'Generate a presigned URL for downloading a specific file from GCS.',
   })
   @ApiResponse({
     status: 200,
@@ -126,7 +126,7 @@ export class S3Controller {
         },
         key: {
           type: 'string',
-          description: 'S3 object key',
+          description: 'GCS object key',
         },
         expiresIn: {
           type: 'number',
@@ -135,7 +135,7 @@ export class S3Controller {
         publicUrl: {
           type: 'string',
           description:
-            'Public S3 URL (may not be accessible if bucket is private)',
+            'Public GCS URL (may not be accessible if bucket is private)',
         },
       },
     },
@@ -154,7 +154,7 @@ export class S3Controller {
       key,
       expiresIn,
     );
-    const publicUrl = this.s3Service.getS3ObjectUrl(key);
+    const publicUrl = this.s3Service.getGCSObjectUrl(key);
 
     return {
       downloadUrl,
