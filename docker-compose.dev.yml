@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Development
+  postgres:
+    image: postgres:15-alpine
+    container_name: fashionfy-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fashly
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - fashionfy-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fashly"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Development (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: fashionfy-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - fashionfy-dev-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # NestJS Application in Development Mode
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        NODE_ENV: development
+    container_name: fashionfy-app-dev
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+      - "9229:9229" # Debug port
+    environment:
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: fashly
+      
+      # JWT Configuration
+      JWT_SECRET: development-jwt-secret-key-not-for-production
+      JWT_EXPIRATION: 24h
+      
+      # Application Configuration
+      NODE_ENV: development
+      PORT: 3001
+      
+      # Redis Configuration (optional)
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:ro
+      - ./package.json:/app/package.json:ro
+      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./nest-cli.json:/app/nest-cli.json:ro
+      # Mount environment file
+      - ./.env:/app/.env:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - fashionfy-dev-network
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+
+networks:
+  fashionfy-dev-network:
+    driver: bridge
