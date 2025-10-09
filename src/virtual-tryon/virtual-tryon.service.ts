@@ -1,9 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { HfInference } from '@huggingface/inference';
 import sharp from 'sharp';
+import { TryOn } from '../database/entities/tryon.entity';
+import { Glasses } from '../database/entities/glasses.entity';
+import {
+  SaveTryOnDto,
+  TryOnHistoryQueryDto,
+  TryOnHistoryResponseDto,
+  PaginatedTryOnHistoryResponseDto,
+  SaveTryOnResponseDto,
+} from './dto/tryon-history.dto';
+import { GlassesResponseDto } from '../glasses/dto/glasses-response.dto';
 
 export interface TryOnRequest {
   personImage: Buffer;
@@ -26,7 +38,13 @@ export class VirtualTryOnService {
   private readonly logger = new Logger(VirtualTryOnService.name);
   private readonly hfClient: HfInference;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    @InjectRepository(TryOn)
+    private readonly tryOnRepository: Repository<TryOn>,
+    @InjectRepository(Glasses)
+    private readonly glassesRepository: Repository<Glasses>,
+  ) {
     const hfToken = this.configService.get<string>('HF_TOKEN');
 
     if (!hfToken || hfToken === 'your-huggingface-token-here') {
@@ -262,5 +280,123 @@ export class VirtualTryOnService {
       this.logger.error('Error validating images:', error);
       return { isValid: false, error: 'Image validation failed' };
     }
+  }
+
+  // Try-on history management
+  async saveTryOn(
+    userId: string,
+    saveTryOnDto: SaveTryOnDto,
+  ): Promise<SaveTryOnResponseDto> {
+    const { glassesId } = saveTryOnDto;
+
+    // Verify glasses exists
+    const glasses = await this.glassesRepository.findOne({
+      where: { id: glassesId },
+    });
+
+    if (!glasses) {
+      throw new NotFoundException(`Glasses with ID ${glassesId} not found`);
+    }
+
+    // Check if try-on record already exists for this user-glasses pair
+    let existingTryOn = await this.tryOnRepository.findOne({
+      where: { userId, glassesId },
+      relations: ['glasses'],
+    });
+
+    let action: 'saved' | 'updated';
+    let tryOnRecord: TryOn;
+
+    if (existingTryOn) {
+      // Update existing record (just updates the timestamp)
+      tryOnRecord = await this.tryOnRepository.save(existingTryOn);
+      action = 'updated';
+    } else {
+      // Create new record
+      const newTryOn = this.tryOnRepository.create({
+        userId,
+        glassesId,
+      });
+      tryOnRecord = await this.tryOnRepository.save(newTryOn);
+      tryOnRecord.glasses = glasses;
+      action = 'saved';
+    }
+
+    // Transform glasses to response DTO (include favorite status for this user)
+    const glassesResponse = GlassesResponseDto.fromEntity(glasses);
+    const tryOnResponse = TryOnHistoryResponseDto.fromEntity(tryOnRecord, glassesResponse);
+
+    return {
+      success: true,
+      action,
+      message: `Try-on ${action} successfully`,
+      data: tryOnResponse,
+    };
+  }
+
+  async getUserTryOnHistory(
+    userId: string,
+    queryDto: TryOnHistoryQueryDto,
+  ): Promise<PaginatedTryOnHistoryResponseDto> {
+    const { page = 1, limit = 20 } = queryDto;
+
+    // Get user's try-on history with glasses data
+    const queryBuilder = this.tryOnRepository
+      .createQueryBuilder('tryon')
+      .leftJoinAndSelect('tryon.glasses', 'glasses')
+      .where('tryon.userId = :userId', { userId })
+      .andWhere('glasses.isActive = :isActive', { isActive: true })
+      .orderBy('tryon.updatedAt', 'DESC');
+
+    // Get total count
+    const total = await queryBuilder.getCount();
+
+    // Apply pagination
+    const offset = (page - 1) * limit;
+    queryBuilder.skip(offset).take(limit);
+
+    // Execute query
+    const tryOns = await queryBuilder.getMany();
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(total / limit);
+    const hasNext = page < totalPages;
+    const hasPrev = page > 1;
+
+    // Transform to response DTOs
+    const data = tryOns.map((tryOn) => {
+      const glassesResponse = GlassesResponseDto.fromEntity(tryOn.glasses);
+      return TryOnHistoryResponseDto.fromEntity(tryOn, glassesResponse);
+    });
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNext,
+        hasPrev,
+      },
+    };
+  }
+
+  async getTryOnCount(userId: string): Promise<number> {
+    return this.tryOnRepository.count({
+      where: { userId },
+    });
+  }
+
+  async deleteTryOn(userId: string, tryOnId: string): Promise<void> {
+    const tryOn = await this.tryOnRepository.findOne({
+      where: { id: tryOnId, userId },
+    });
+
+    if (!tryOn) {
+      throw new NotFoundException(`Try-on record with ID ${tryOnId} not found`);
+    }
+
+    await this.tryOnRepository.remove(tryOn);
   }
 }

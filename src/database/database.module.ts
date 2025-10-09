@@ -3,6 +3,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from './entities/user.entity';
 import { Glasses } from './entities/glasses.entity';
+import { Otp } from './entities/otp.entity';
+import { Favorite } from './entities/favorite.entity';
+import { TryOn } from './entities/tryon.entity';
 
 @Module({
   imports: [
@@ -15,7 +18,7 @@ import { Glasses } from './entities/glasses.entity';
         username: configService.get('DB_USERNAME', 'postgres'),
         password: configService.get('DB_PASSWORD', 'password'),
         database: configService.get('DB_NAME', 'fashly'),
-        entities: [User, Glasses],
+        entities: [User, Glasses, Otp, Favorite, TryOn],
         synchronize: false, // Use migrations instead
         migrations: ['dist/database/migrations/*.js'],
         migrationsRun: true, // Auto-run migrations on startup
@@ -27,7 +30,7 @@ import { Glasses } from './entities/glasses.entity';
       }),
       inject: [ConfigService],
     }),
-    TypeOrmModule.forFeature([User, Glasses]),
+    TypeOrmModule.forFeature([User, Glasses, Otp, Favorite, TryOn]),
   ],
   exports: [TypeOrmModule],
 })

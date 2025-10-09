@@ -19,7 +19,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../database/entities/user.entity';
 
 @ApiTags('s3')
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 @Controller('api/s3')
 export class S3Controller {
   constructor(private readonly s3Service: S3Service) {}

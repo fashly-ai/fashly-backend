@@ -33,29 +33,61 @@ async function bootstrap() {
 
   // Setup Swagger documentation
   const config = new DocumentBuilder()
-    .setTitle('Portrait Sunglasses API')
+    .setTitle('Fashionfy Demo Integration API')
     .setDescription(
-      'AI-powered API to add stylish sunglasses to portrait photographs',
+      'Complete fashion platform API with authentication, file storage, virtual try-on, and web crawling capabilities',
     )
     .setVersion('1.0')
-    .addTag('image', 'Image processing endpoints')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Enter JWT token (without "Bearer" prefix)',
+      },
+      'JWT-auth', // This name here is important for matching up with @ApiBearerAuth() in your controller!
+    )
+    .addTag('auth', 'Authentication endpoints')
+    .addTag('profile', 'User profile management')
+    .addTag('s3', 'File storage endpoints')
+    .addTag('virtual-tryon', 'Virtual try-on AI endpoints')
+    .addTag('crawling', 'Web crawling endpoints')
+    .addTag('general', 'General API endpoints')
     .addServer(`http://localhost:${port}`, 'Development server')
+    .addServer(`https://api.fashionfy.com`, 'Production server')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
-    customSiteTitle: 'Portrait Sunglasses API',
-    customfavIcon: '🕶️',
-    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Fashionfy Demo Integration API',
+    customfavIcon: '👗',
+    customCss: `
+      .swagger-ui .topbar { display: none }
+      .swagger-ui .info .title { color: #6366f1; }
+      .swagger-ui .scheme-container { background: #f8f9fa; padding: 10px; border-radius: 5px; }
+    `,
+    swaggerOptions: {
+      persistAuthorization: true, // Keep JWT token after page refresh
+      displayRequestDuration: true,
+      filter: true,
+      showExtensions: true,
+      showCommonExtensions: true,
+    },
   });
 
   await app.listen(port);
-  console.log(`🚀 Sunglasses API is running on: http://localhost:${port}`);
+  console.log(`🚀 Fashionfy Demo Integration API is running on: http://localhost:${port}`);
   console.log(
     `📚 Swagger docs available at: http://localhost:${port}/api/docs`,
   );
   console.log(
-    `📸 Upload endpoint: http://localhost:${port}/api/image/add-sunglasses`,
+    `🔐 Authentication endpoints: /auth/sign-in, /auth/sign-in-verify`,
+  );
+  console.log(
+    `📁 File storage endpoints: /api/s3/presigned-upload-url`,
+  );
+  console.log(
+    `🕷️ Crawling endpoints: /crawling/gentle-monster-glasses`,
   );
   console.log(
     `💡 Make sure to set HF_TOKEN environment variable for Hugging Face API`,

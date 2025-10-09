@@ -28,6 +28,37 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
+  // Profile fields
+  @Column({ nullable: true })
+  height?: string; // e.g., "5'6\"" or "168cm"
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  weight?: number; // in lbs or kg
+
+  @Column({ nullable: true })
+  weightUnit?: string; // "lbs" or "kg"
+
+  @Column({ nullable: true })
+  profileImageUrl?: string; // URL to profile/selfie image
+
+  @Column({ nullable: true })
+  phoneNumber?: string;
+
+  @Column({ type: 'date', nullable: true })
+  dateOfBirth?: Date;
+
+  @Column({ nullable: true })
+  gender?: string; // "male", "female", "other", "prefer-not-to-say"
+
+  @Column({ nullable: true })
+  bio?: string;
+
+  @Column({ nullable: true })
+  location?: string;
+
+  @Column({ default: false })
+  profileCompleted: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 
