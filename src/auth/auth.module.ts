@@ -7,13 +7,18 @@ import { APP_GUARD } from '@nestjs/core';
 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { ProfileController } from './profile.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { User } from '../database/entities/user.entity';
+import { Otp } from '../database/entities/otp.entity';
+import { OtpService } from './services/otp.service';
+import { EmailService } from './services/email.service';
+import { ProfileService } from './services/profile.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Otp]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -26,9 +31,12 @@ import { User } from '../database/entities/user.entity';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, ProfileController],
   providers: [
     AuthService,
+    ProfileService,
+    OtpService,
+    EmailService,
     JwtStrategy,
     {
       provide: APP_GUARD,

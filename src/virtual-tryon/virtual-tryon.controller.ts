@@ -1,172 +1,122 @@
 import {
   Controller,
   Post,
-  UploadedFiles,
-  UseInterceptors,
-  BadRequestException,
-  InternalServerErrorException,
-  HttpStatus,
-  Res,
+  Get,
+  Delete,
+  UseGuards,
   Body,
+  Query,
+  Param,
+  ParseUUIDPipe,
   Logger,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
-import type { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiConsumes,
-  ApiBody,
-  ApiProduces,
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { VirtualTryOnService } from './virtual-tryon.service';
-import { VirtualTryOnDto } from './dto/virtual-tryon.dto';
-import { Public } from '../auth/decorators/public.decorator';
+import {
+  SaveTryOnDto,
+  TryOnHistoryQueryDto,
+  PaginatedTryOnHistoryResponseDto,
+  SaveTryOnResponseDto,
+} from './dto/tryon-history.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { User } from '../database/entities/user.entity';
 
-@ApiTags('virtual-tryon')
-@Controller('api/virtual-tryon')
+@ApiTags('try-on-history')
+@Controller('api/tryon')
 export class VirtualTryOnController {
   private readonly logger = new Logger(VirtualTryOnController.name);
 
   constructor(private readonly virtualTryOnService: VirtualTryOnService) {}
 
-  @Public()
-  @Post('try-on')
+  // Removed complex virtual try-on endpoint - now just simple tracking
+
+  @UseGuards(JwtAuthGuard)
+  @Post('save')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
-    summary: 'Virtual try-on for garments using IDM-VTON',
-    description: 'Upload a person image and garment image to see how the garment looks on the person using IDM-VTON AI model. No authentication required.',
-  })
-  @ApiConsumes('multipart/form-data')
-  @ApiProduces('image/jpeg')
-  @ApiBody({
-    description: 'Person image and garment image files',
-          schema: {
-        type: 'object',
-        properties: {
-          images: {
-            type: 'array',
-            items: {
-              type: 'string',
-              format: 'binary',
-            },
-            description: 'Upload 2 images: 1st = person photo, 2nd = garment photo (JPEG, PNG, WebP)',
-            minItems: 2,
-            maxItems: 2,
-          },
-          category: {
-            type: 'string',
-            enum: ['tops', 'bottoms', 'dresses', 'outerwear', 'general'],
-            description: 'Category of the garment',
-            default: 'general',
-          },
-          options: {
-            type: 'string',
-            description: 'Additional processing options (JSON string)',
-            example: '{"preserve_background": true, "fit_adjustment": "normal"}',
-          },
-        },
-        required: ['images'],
-      },
+    summary: 'Save glasses try-on to history',
+    description:
+      'Record that a user has tried on specific glasses. If the same glasses was already tried on, it updates the timestamp.',
   })
   @ApiResponse({
-    status: 200,
-    description: 'Virtual try-on completed successfully',
-    content: {
-      'image/jpeg': {
-        schema: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
+    status: 201,
+    description: 'Try-on saved successfully',
+    type: SaveTryOnResponseDto,
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - invalid images or missing files',
+    description: 'Bad request - invalid data',
   })
-
   @ApiResponse({
-    status: 500,
-    description: 'Internal server error - processing failed',
+    status: 401,
+    description: 'Unauthorized - JWT token required',
   })
-  @UseInterceptors(
-    FilesInterceptor('images', 2, {
-      limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB limit per file
-        files: 2, // Exactly 2 files required
-      },
-      fileFilter: (req, file, callback) => {
-        if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
-          return callback(
-            new BadRequestException('Only image files are allowed'),
-            false,
-          );
-        }
-        callback(null, true);
-      },
-    }),
-  )
-  async virtualTryOn(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Body() virtualTryOnDto: VirtualTryOnDto,
-    @Res() res: Response,
-  ) {
-    // Validate file uploads
-    if (!files || files.length !== 2) {
-      throw new BadRequestException('Exactly 2 images are required: first image = person, second image = garment');
-    }
+  @ApiResponse({
+    status: 404,
+    description: 'Glasses not found',
+  })
+  saveTryOn(
+    @Body() saveTryOnDto: SaveTryOnDto,
+    @CurrentUser() user: User,
+  ): Promise<SaveTryOnResponseDto> {
+    return this.virtualTryOnService.saveTryOn(user.id, saveTryOnDto);
+  }
 
-    // Simple order-based assignment: first file = person, second file = garment
-    const [personImage, garmentImage] = files;
-    
-    this.logger.log(`Processing virtual try-on: person image (${personImage.originalname}), garment image (${garmentImage.originalname})`);
+  @UseGuards(JwtAuthGuard)
+  @Get('history')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Get user try-on history',
+    description:
+      'Retrieve the list of glasses the authenticated user has tried on with pagination',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully retrieved try-on history',
+    type: PaginatedTryOnHistoryResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - JWT token required',
+  })
+  getTryOnHistory(
+    @Query() queryDto: TryOnHistoryQueryDto,
+    @CurrentUser() user: User,
+  ): Promise<PaginatedTryOnHistoryResponseDto> {
+    return this.virtualTryOnService.getUserTryOnHistory(user.id, queryDto);
+  }
 
-    try {
-      // Validate images
-      const validation = await this.virtualTryOnService.validateImages(
-        personImage.buffer,
-        garmentImage.buffer,
-      );
-
-      if (!validation.isValid) {
-        throw new BadRequestException(validation.error);
-      }
-
-      // Perform virtual try-on
-      const result = await this.virtualTryOnService.performVirtualTryOn({
-        personImage: personImage.buffer,
-        garmentImage: garmentImage.buffer,
-        category: virtualTryOnDto.category,
-      });
-
-      // Set response headers
-      res.set({
-        'Content-Type': 'image/jpeg',
-        'Content-Length': result.processedImage.length.toString(),
-        'Content-Disposition': 'attachment; filename="virtual-tryon-result.jpg"',
-        'X-Processing-Time': result.processingTime.toString(),
-        'X-Original-Size': `${result.metadata.originalSize.width}x${result.metadata.originalSize.height}`,
-        'X-Processed-Size': `${result.metadata.processedSize.width}x${result.metadata.processedSize.height}`,
-        'X-Category': result.metadata.category,
-      });
-
-      // Log successful processing
-      this.logger.log(`Virtual try-on completed in ${result.processingTime}ms`);
-
-      // Send the processed image
-      res.status(HttpStatus.OK).send(result.processedImage);
-    } catch (error) {
-      this.logger.error('Virtual try-on failed:', error);
-      
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      
-      throw new InternalServerErrorException(
-        `Virtual try-on processing failed: ${error.message}`,
-      );
-    }
+  @UseGuards(JwtAuthGuard)
+  @Delete('history/:id')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Delete try-on from history',
+    description:
+      "Remove a specific glasses try-on record from the user's history",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Try-on deleted successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - JWT token required',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Try-on record not found',
+  })
+  async deleteTryOn(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ): Promise<{ message: string }> {
+    await this.virtualTryOnService.deleteTryOn(user.id, id);
+    return { message: 'Try-on deleted successfully' };
   }
 }

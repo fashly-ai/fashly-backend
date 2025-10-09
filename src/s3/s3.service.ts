@@ -30,11 +30,13 @@ export class S3Service {
     const keyFilename = this.configService.get<string>('GCP_KEY_FILE');
 
     if (!bucketName) {
-      throw new Error('GCS_BUCKET_NAME environment variable is required');
+      this.logger.warn('GCS_BUCKET_NAME not configured - GCS features will be disabled');
+      return;
     }
 
     if (!projectId) {
-      throw new Error('GCP_PROJECT_ID environment variable is required');
+      this.logger.warn('GCP_PROJECT_ID not configured - GCS features will be disabled');
+      return;
     }
 
     this.bucketName = bucketName;
@@ -63,9 +65,9 @@ export class S3Service {
   async generatePresignedUploadUrl(
     options: GeneratePresignedUrlOptions,
   ): Promise<PresignedUrlResponse> {
-    if (!this.storage) {
+    if (!this.storage || !this.bucketName) {
       throw new Error(
-        'GCS service not configured. Please set GCP environment variables.',
+        'GCS service not configured. Please set GCP_PROJECT_ID and GCS_BUCKET_NAME environment variables.',
       );
     }
     const {
@@ -125,9 +127,9 @@ export class S3Service {
     key: string,
     expiresIn: number = 3600,
   ): Promise<string> {
-    if (!this.storage) {
+    if (!this.storage || !this.bucketName) {
       throw new Error(
-        'GCS service not configured. Please set GCP environment variables.',
+        'GCS service not configured. Please set GCP_PROJECT_ID and GCS_BUCKET_NAME environment variables.',
       );
     }
     try {

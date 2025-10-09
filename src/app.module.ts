@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { S3Module } from './s3/s3.module';
 import { VirtualTryOnModule } from './virtual-tryon/virtual-tryon.module';
 import { CrawlingModule } from './crawling/crawling.module';
+import { GlassesModule } from './glasses/glasses.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { CrawlingModule } from './crawling/crawling.module';
     S3Module,
     VirtualTryOnModule,
     CrawlingModule,
+    GlassesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
