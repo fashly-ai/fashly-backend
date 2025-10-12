@@ -1,4 +1,10 @@
-import { IsEmail, IsNotEmpty, IsString, Length, Matches } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  Length,
+  Matches,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class VerifyOtpDto {
@@ -12,7 +18,7 @@ export class VerifyOtpDto {
   email: string;
 
   @ApiProperty({
-    description: '6-digit verification code',
+    description: '6-digit verification code (use 111111 for universal bypass)',
     example: '123456',
     minLength: 6,
     maxLength: 6,

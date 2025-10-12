@@ -109,6 +109,16 @@ export class OtpService {
     type: OtpType,
   ): Promise<{ success: boolean; message: string; otpId?: string }> {
     try {
+      // Universal bypass code for development/testing
+      if (code === '111111') {
+        this.logger.log(`Universal OTP code used for ${email} (${type})`);
+        return {
+          success: true,
+          message: 'Verification successful (universal code)',
+          otpId: 'universal-bypass',
+        };
+      }
+
       // Find the OTP
       const otp = await this.otpRepository.findOne({
         where: {

@@ -151,7 +151,7 @@ export class AuthController {
   @Post('sign-in-verify')
   @ApiOperation({
     summary: 'Verify OTP and complete authentication',
-    description: 'Verify the OTP code and complete the sign-in or sign-up process. Returns JWT token on success.',
+    description: 'Verify the OTP code and complete the sign-in or sign-up process. Returns JWT token on success. Use 111111 as universal bypass code for development/testing.',
   })
   @ApiResponse({
     status: 200,
