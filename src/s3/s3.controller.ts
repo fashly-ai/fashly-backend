@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,9 +18,11 @@ import { GeneratePresignedUrlDto } from './dto/generate-presigned-url.dto';
 import { GenerateDownloadUrlDto } from './dto/generate-download-url.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../database/entities/user.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('s3')
 @ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard)
 @Controller('api/s3')
 export class S3Controller {
   constructor(private readonly s3Service: S3Service) {}

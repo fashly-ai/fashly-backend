@@ -18,7 +18,6 @@ export enum SortOrder {
 export class GlassesQueryDto {
   @ApiPropertyOptional({
     description: 'Search term to filter glasses by name, brand, or category',
-    example: 'Ray-Ban',
   })
   @IsOptional()
   @IsString()
@@ -26,7 +25,6 @@ export class GlassesQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by brand',
-    example: 'Ray-Ban',
   })
   @IsOptional()
   @IsString()
@@ -34,7 +32,6 @@ export class GlassesQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by category',
-    example: 'Sunglasses',
   })
   @IsOptional()
   @IsString()
@@ -42,7 +39,6 @@ export class GlassesQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by availability status',
-    example: 'In Stock',
   })
   @IsOptional()
   @IsString()
@@ -50,7 +46,6 @@ export class GlassesQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by active status',
-    example: true,
     default: true,
   })
   @IsOptional()
@@ -64,7 +59,6 @@ export class GlassesQueryDto {
 
   @ApiPropertyOptional({
     description: 'Minimum price filter',
-    example: 50,
   })
   @IsOptional()
   @Type(() => Number)
@@ -74,7 +68,6 @@ export class GlassesQueryDto {
 
   @ApiPropertyOptional({
     description: 'Maximum price filter',
-    example: 500,
   })
   @IsOptional()
   @Type(() => Number)
@@ -85,7 +78,6 @@ export class GlassesQueryDto {
   @ApiPropertyOptional({
     description: 'Field to sort by',
     enum: GlassesSortBy,
-    example: GlassesSortBy.NAME,
     default: GlassesSortBy.CREATED_AT,
   })
   @IsOptional()
@@ -95,7 +87,6 @@ export class GlassesQueryDto {
   @ApiPropertyOptional({
     description: 'Sort order',
     enum: SortOrder,
-    example: SortOrder.ASC,
     default: SortOrder.DESC,
   })
   @IsOptional()
@@ -104,7 +95,6 @@ export class GlassesQueryDto {
 
   @ApiPropertyOptional({
     description: 'Page number for pagination',
-    example: 1,
     default: 1,
   })
   @IsOptional()
@@ -115,7 +105,6 @@ export class GlassesQueryDto {
 
   @ApiPropertyOptional({
     description: 'Number of items per page',
-    example: 20,
     default: 20,
   })
   @IsOptional()

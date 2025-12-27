@@ -10,8 +10,11 @@ import {
 import { User } from './user.entity';
 import { Glasses } from './glasses.entity';
 
+export type ItemType = 'glasses' | 'clothes';
+
 @Entity('favorites')
-@Index(['userId', 'glassesId'], { unique: true }) // Ensure one favorite per user-glasses pair
+@Index(['userId', 'glassesId'], { unique: true, where: '"glassesId" IS NOT NULL' }) // For backward compatibility
+@Index(['userId', 'itemId', 'itemType'], { unique: true, where: '"itemId" IS NOT NULL' }) // For new items
 export class Favorite {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -24,13 +27,23 @@ export class Favorite {
   @Index()
   userId: string;
 
-  @ManyToOne(() => Glasses, { onDelete: 'CASCADE' })
+  // Legacy field for glasses (kept for backward compatibility)
+  @ManyToOne(() => Glasses, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'glassesId' })
-  glasses: Glasses;
+  glasses?: Glasses;
 
-  @Column()
+  @Column({ nullable: true })
   @Index()
-  glassesId: string;
+  glassesId?: string;
+
+  // New generic fields for any item type
+  @Column({ nullable: true })
+  @Index()
+  itemId?: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Index()
+  itemType?: ItemType;
 
   @CreateDateColumn()
   createdAt: Date;

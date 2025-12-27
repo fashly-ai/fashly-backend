@@ -1,15 +1,19 @@
-# Fashly Backend - Authentication API
+# Fashly Backend - Complete Fashion API
 
-A robust NestJS-based authentication API with JWT tokens, PostgreSQL database, and Docker deployment ready.
+A comprehensive NestJS-based fashion API with AI-powered virtual try-on, glass catalog management, JWT authentication, and ComfyUI integration.
 
-![API Demo](https://img.shields.io/badge/API-Ready-green) ![NestJS](https://img.shields.io/badge/NestJS-Framework-red) ![Auth](https://img.shields.io/badge/JWT-Authentication-blue) ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-336791)
+![API Demo](https://img.shields.io/badge/API-Ready-green) ![NestJS](https://img.shields.io/badge/NestJS-Framework-red) ![Auth](https://img.shields.io/badge/JWT-Authentication-blue) ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-336791) ![ComfyUI](https://img.shields.io/badge/ComfyUI-AI%20Processing-purple)
 
 ## ✨ Features
 
+- **🤖 ComfyUI Integration**: AI-powered image processing with image2image workflows
+- **👓 Glass Try-On History**: Save and manage AI-generated glass try-on results
+- **🛍️ Glasses Catalog**: Browse, search, and filter glasses with favorites
 - **🔐 JWT Authentication**: Secure user registration and login system
 - **🗄️ PostgreSQL Database**: Robust data storage with TypeORM
-- **👤 User Management**: Complete user profile system
+- **👤 User Management**: Complete user profile system with favorites
 - **📁 AWS S3 Integration**: Presigned URL generation for secure file uploads
+- **📊 Try-On History**: Track and manage virtual try-on attempts
 - **🛡️ Security**: Password hashing, input validation, CORS protection
 - **🐳 Docker Ready**: Complete containerized deployment with docker-compose
 - **📚 API Documentation**: Interactive Swagger/OpenAPI documentation
@@ -77,9 +81,26 @@ A robust NestJS-based authentication API with JWT tokens, PostgreSQL database, a
 
 ## 📚 API Documentation
 
+### Interactive Documentation
 Visit `http://localhost:3000/api/docs` (Docker) or `http://localhost:3001/api/docs` (local) for interactive Swagger documentation.
 
+### Complete API Reference
+See **[API_REFERENCE.md](./API_REFERENCE.md)** for comprehensive documentation of all endpoints including:
+- **ComfyUI Integration**: AI-powered glass image processing
+- **Glass Try-On History**: Save and manage try-on results
+- **Glasses Catalog**: Browse, search, and filter glasses
+- **Virtual Try-On**: Track try-on attempts
+- **AWS S3 Storage**: File upload/download
+- **Authentication**: User registration and login
+
+### Additional Guides
+- **[COMFYUI_INTEGRATION_GUIDE.md](./COMFYUI_INTEGRATION_GUIDE.md)**: ComfyUI setup and integration
+- **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)**: Production deployment
+- **[DOCKER_GUIDE.md](./DOCKER_GUIDE.md)**: Docker setup and configuration
+
 ## 🔐 API Usage Examples
+
+### Quick Start Examples
 
 ### 1. API Health Check
 
@@ -189,12 +210,73 @@ curl -X PUT "https://your-bucket.s3.amazonaws.com/user-uploads/1704067200000_abc
   --data-binary @profile-picture.jpg
 ```
 
+### 7. ComfyUI Glass Try-On (NEW)
+
+```bash
+# Process a glass through ComfyUI AI
+curl -X POST http://localhost:3000/api/comfyui/process-glass \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "glassId": "42a793e7-54d6-4550-8020-33695a15fb91",
+    "prompt": "person wearing stylish eyeglasses, professional portrait, clear face, natural lighting",
+    "negativePrompt": "blurry, low quality, distorted, cropped face",
+    "seed": 42
+  }'
+```
+
+**Response includes history ID for saving:**
+```json
+{
+  "id": "c1e5d890-1234-5678-90ab-123456789abc",
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
+  "glassId": "42a793e7-54d6-4550-8020-33695a15fb91",
+  "resultImageUrl": "data:image/png;base64,iVBORw0KGgo...",
+  "savedTryOn": false,
+  "processingTime": 30291,
+  "imageSize": 224704
+}
+```
+
+### 8. Save Try-On Result (NEW)
+
+```bash
+# Mark a try-on as saved (after user likes it)
+curl -X PUT http://localhost:3000/api/glass-tryon-history/c1e5d890-1234-5678-90ab-123456789abc/saved-status \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  -d '{"savedTryOn": true}'
+```
+
+### 9. Browse Glasses Catalog (Public)
+
+```bash
+# No authentication required!
+curl -X GET http://localhost:3000/api/glasses?search=Jeff&brand=Gentle%20Monster
+
+# Get specific glass details
+curl -X GET http://localhost:3000/api/glasses/42a793e7-54d6-4550-8020-33695a15fb91
+```
+
+### 10. Get Try-On History (NEW)
+
+```bash
+# Get all try-on history
+curl -X GET http://localhost:3000/api/glass-tryon-history \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# Get only saved try-ons
+curl -X GET http://localhost:3000/api/glass-tryon-history?savedTryOn=true \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
 ## 🏗️ Architecture
 
 ### Technology Stack
 
 - **Framework**: NestJS (TypeScript)
 - **Database**: PostgreSQL 15 with TypeORM
+- **AI Processing**: ComfyUI (Stable Diffusion image2image)
 - **Authentication**: JWT with Passport.js
 - **File Storage**: AWS S3 with presigned URLs
 - **Validation**: class-validator & class-transformer
@@ -212,6 +294,61 @@ users {
   lastName: VARCHAR
   password: VARCHAR (hashed with bcrypt)
   isActive: BOOLEAN
+  createdAt: TIMESTAMP
+  updatedAt: TIMESTAMP
+}
+
+-- Glasses catalog
+glasses {
+  id: UUID (PK)
+  name: VARCHAR
+  productUrl: VARCHAR
+  imageUrl: VARCHAR
+  allImages: TEXT (JSON array)
+  brand: VARCHAR
+  category: VARCHAR
+  price: VARCHAR
+  availability: VARCHAR
+  isActive: BOOLEAN
+  createdAt: TIMESTAMP
+  updatedAt: TIMESTAMP
+}
+
+-- Glass try-on history (ComfyUI results)
+glass_tryon_history {
+  id: UUID (PK)
+  userId: UUID (FK -> users)
+  glassesId: UUID (FK -> glasses)
+  prompt: TEXT
+  negativePrompt: TEXT
+  seed: INTEGER
+  resultImageUrl: TEXT (base64 or S3 URL)
+  promptId: VARCHAR (ComfyUI prompt ID)
+  filename: VARCHAR
+  processingTime: INTEGER (milliseconds)
+  imageSize: INTEGER (bytes)
+  savedTryOn: BOOLEAN (default: false)
+  createdAt: TIMESTAMP
+  updatedAt: TIMESTAMP
+}
+
+-- User favorites
+favorites {
+  id: UUID (PK)
+  userId: UUID (FK -> users)
+  glassesId: UUID (FK -> glasses)
+  createdAt: TIMESTAMP
+  updatedAt: TIMESTAMP
+  UNIQUE(userId, glassesId)
+}
+
+-- Virtual try-on tracking
+tryons {
+  id: UUID (PK)
+  userId: UUID (FK -> users)
+  glassesId: UUID (FK -> glasses)
+  resultImageUrl: VARCHAR
+  metadata: TEXT (JSON)
   createdAt: TIMESTAMP
   updatedAt: TIMESTAMP
 }
@@ -243,6 +380,7 @@ src/
 │   ├── auth.controller.ts        # Auth endpoints (signup/signin/profile)
 │   ├── auth.service.ts           # Auth business logic & JWT
 │   ├── auth.module.ts            # Auth module configuration
+│   ├── profile.controller.ts     # User profile management
 │   ├── strategies/
 │   │   └── jwt.strategy.ts       # JWT validation strategy
 │   ├── guards/
@@ -250,9 +388,38 @@ src/
 │   ├── decorators/
 │   │   ├── current-user.decorator.ts  # Get current user
 │   │   └── public.decorator.ts        # Mark routes as public
+│   ├── services/
+│   │   ├── email.service.ts      # Email sending (SMTP)
+│   │   └── otp.service.ts        # OTP generation/validation
 │   └── dto/
 │       ├── signup.dto.ts         # User registration DTO
-│       └── signin.dto.ts         # User login DTO
+│       ├── signin.dto.ts         # User login DTO
+│       ├── email-signin.dto.ts   # Email-based signin
+│       └── verify-otp.dto.ts     # OTP verification
+├── comfyui/                      # ComfyUI AI integration ⭐ NEW
+│   ├── comfyui.controller.ts     # ComfyUI endpoints
+│   ├── comfyui.service.ts        # ComfyUI workflow processing
+│   ├── comfyui.module.ts         # ComfyUI module configuration
+│   ├── glass-tryon-history.controller.ts  # Try-on history endpoints
+│   ├── glass-tryon-history.service.ts     # History management
+│   └── dto/
+│       ├── image2image.dto.ts    # Image processing DTOs
+│       ├── process-glass.dto.ts  # Glass processing DTO
+│       └── glass-tryon-history.dto.ts  # History DTOs
+├── glasses/                      # Glasses catalog ⭐ NEW
+│   ├── glasses.controller.ts     # Glasses CRUD & search
+│   ├── glasses.service.ts        # Business logic
+│   ├── glasses.module.ts         # Module configuration
+│   └── dto/
+│       ├── glasses-query.dto.ts  # Search/filter params
+│       ├── glasses-response.dto.ts  # Response format
+│       └── favorite.dto.ts       # Favorites management
+├── virtual-tryon/                # Virtual try-on tracking
+│   ├── virtual-tryon.controller.ts  # Try-on endpoints
+│   ├── virtual-tryon.service.ts     # Try-on logic
+│   ├── virtual-tryon.module.ts      # Module configuration
+│   └── dto/
+│       └── tryon-history.dto.ts  # Try-on DTOs
 ├── s3/                           # AWS S3 integration
 │   ├── s3.controller.ts          # S3 presigned URL endpoints
 │   ├── s3.service.ts             # S3 operations & validation
@@ -260,10 +427,24 @@ src/
 │   └── dto/
 │       ├── generate-presigned-url.dto.ts    # Upload URL DTO
 │       └── generate-download-url.dto.ts     # Download URL DTO
+├── crawling/                     # Web scraping
+│   ├── crawling.controller.ts    # Crawling endpoints
+│   ├── crawling.service.ts       # Scraping logic
+│   ├── crawling.module.ts        # Module configuration
+│   └── dto/
+│       └── crawl.dto.ts          # Crawling DTOs
 └── database/                     # Database configuration
     ├── database.module.ts        # TypeORM configuration
-    └── entities/
-        └── user.entity.ts        # User entity
+    ├── data-source.ts            # Database connection
+    ├── entities/
+    │   ├── user.entity.ts        # User entity
+    │   ├── glasses.entity.ts     # Glasses catalog
+    │   ├── glass-tryon-history.entity.ts  # Try-on history
+    │   ├── favorite.entity.ts    # User favorites
+    │   ├── tryon.entity.ts       # Virtual try-on
+    │   └── otp.entity.ts         # OTP codes
+    └── migrations/               # Database migrations
+        └── *.ts                  # Migration files
 ```
 
 ## 🔧 Configuration
@@ -289,6 +470,10 @@ AWS_ACCESS_KEY_ID=your-aws-access-key-id
 AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
 AWS_S3_BUCKET=your-s3-bucket-name
 
+# ComfyUI Configuration
+COMFYUI_API_URL=http://localhost:8188
+COMFYUI_TIMEOUT=60000
+
 # Application Configuration
 NODE_ENV=development
 PORT=3001
@@ -306,6 +491,10 @@ DB_NAME=auth_api
 # JWT Configuration
 JWT_SECRET=your-super-secret-jwt-key-change-in-production
 JWT_EXPIRATION=24h
+
+# ComfyUI Configuration (Docker service name)
+COMFYUI_API_URL=http://comfyui:8188
+COMFYUI_TIMEOUT=60000
 
 # Application Configuration
 NODE_ENV=production
@@ -445,12 +634,37 @@ pnpm run test:cov
 | GET | `/` | Health check |
 | POST | `/auth/signup` | User registration |
 | POST | `/auth/signin` | User login |
+| GET | `/api/glasses` | Browse glasses catalog with filters |
+| GET | `/api/glasses/{id}` | Get glass details by ID |
+| GET | `/api/glasses/brands/available` | Get all available brands |
+| GET | `/api/glasses/categories/available` | Get all available categories |
+| GET | `/api/glasses/brand/{name}` | Get glasses by brand |
+| GET | `/api/glasses/category/{name}` | Get glasses by category |
+| POST | `/api/comfyui/image2image` | Process image through ComfyUI |
+| POST | `/api/comfyui/upload-process` | Upload and process image |
+| GET | `/api/comfyui/health` | Check ComfyUI service health |
+| GET | `/api/comfyui/queue` | Get ComfyUI queue status |
 
 ### Protected Endpoints (Require JWT)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/auth/profile` | Get user profile |
+| **ComfyUI & Glass Try-On** | | |
+| POST | `/api/comfyui/process-glass` | Process glass through ComfyUI + save history |
+| GET | `/api/glass-tryon-history` | Get user's glass try-on history |
+| GET | `/api/glass-tryon-history/{id}` | Get specific try-on record |
+| PUT | `/api/glass-tryon-history/{id}/saved-status` | Update saved status |
+| DELETE | `/api/glass-tryon-history/{id}` | Delete try-on record |
+| POST | `/api/glass-tryon-history` | Manually save try-on result |
+| **Glasses & Favorites** | | |
+| POST | `/api/glasses/{id}/favorite` | Toggle favorite status |
+| GET | `/api/glasses/favorites/me` | Get user's favorite glasses |
+| **Virtual Try-On** | | |
+| POST | `/api/tryon/save` | Save virtual try-on record |
+| GET | `/api/tryon/history` | Get try-on history |
+| DELETE | `/api/tryon/history/{id}` | Delete try-on record |
+| **AWS S3 Storage** | | |
 | POST | `/api/s3/presigned-upload-url` | Generate S3 presigned upload URL |
 | POST | `/api/s3/presigned-download-url` | Generate S3 presigned download URL |
 
@@ -478,6 +692,19 @@ pnpm run test:cov
    - Check TypeScript version compatibility
    - Verify all environment variables are set
 
+5. **ComfyUI Connection Issues**
+   - Ensure ComfyUI is running on the configured URL
+   - Check `COMFYUI_API_URL` in `.env` file
+   - For Docker: ensure ComfyUI service is accessible
+   - Test with: `curl http://localhost:8188/system_stats`
+   - Check ComfyUI logs for errors
+
+6. **Glass Processing Issues**
+   - Verify glass has `_D_45.jpg` image in `allImages`
+   - Ensure image URLs are accessible
+   - Processing can take 20-60 seconds - be patient
+   - Check ComfyUI queue status: `GET /api/comfyui/queue`
+
 ### Performance Tips
 
 - For production: use dedicated PostgreSQL instance
@@ -485,6 +712,9 @@ pnpm run test:cov
 - Implement rate limiting for auth endpoints
 - Use connection pooling for database
 - Enable logging for monitoring
+- **ComfyUI**: Consider GPU acceleration for faster processing
+- **Images**: Cache processed results to avoid reprocessing
+- **Database**: Add indexes for frequently queried fields
 
 ## 📊 Monitoring & Logs
 
@@ -505,15 +735,35 @@ Access pgAdmin at `http://localhost:5050`:
 
 ## 🔄 Extending the API
 
-This authentication API provides a solid foundation for building larger applications. You can easily extend it by:
+This API has been extended with comprehensive features for fashion e-commerce:
 
-1. **Adding new modules**: Business logic, file uploads, notifications
-2. **Implementing role-based access**: Admin, user, moderator roles
-3. **Adding email verification**: Registration confirmation
-4. **OAuth integration**: Google, GitHub, Facebook login
-5. **API rate limiting**: Protect against abuse
-6. **Audit logging**: Track user actions
-7. **Password reset**: Forgot password functionality
+### ✅ Implemented Features
+
+1. **✅ ComfyUI AI Integration**: Process images through Stable Diffusion workflows
+2. **✅ Glass Try-On History**: Save and manage AI-generated try-on results
+3. **✅ Glasses Catalog**: Full CRUD with search, filters, and pagination
+4. **✅ User Favorites**: Save favorite glasses for quick access
+5. **✅ Virtual Try-On Tracking**: Track user try-on attempts
+6. **✅ Public API Access**: Browse glasses without authentication
+7. **✅ AWS S3 Integration**: Secure file uploads with presigned URLs
+8. **✅ Database Migrations**: Automated schema management
+
+### 🔮 Potential Extensions
+
+You can further extend the API with:
+
+1. **User Reviews & Ratings**: Add reviews for glasses products
+2. **Recommendation Engine**: ML-based product recommendations
+3. **Shopping Cart & Checkout**: E-commerce functionality
+4. **Order Management**: Track purchases and shipments
+5. **Role-based Access Control**: Admin, seller, buyer roles
+6. **Email Verification**: Registration confirmation
+7. **OAuth Integration**: Google, GitHub, Facebook login
+8. **API Rate Limiting**: Protect against abuse
+9. **Audit Logging**: Track user actions
+10. **Password Reset**: Forgot password functionality
+11. **Push Notifications**: Real-time updates
+12. **Analytics Dashboard**: Track usage metrics
 
 ## 🤝 Contributing
 
@@ -529,8 +779,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔗 Related Resources
 
+### Internal Documentation
+- **[API_REFERENCE.md](./API_REFERENCE.md)** - Complete API endpoint documentation
+- **[COMFYUI_INTEGRATION_GUIDE.md](./COMFYUI_INTEGRATION_GUIDE.md)** - ComfyUI setup guide
+- **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** - Production deployment guide
+- **[DOCKER_GUIDE.md](./DOCKER_GUIDE.md)** - Docker setup and usage
+
+### External Resources
 - [NestJS Documentation](https://docs.nestjs.com/)
 - [TypeORM Documentation](https://typeorm.io/)
+- [ComfyUI GitHub](https://github.com/comfyanonymous/ComfyUI)
+- [Stable Diffusion](https://stability.ai/)
 - [JWT.io](https://jwt.io/) - JSON Web Token debugger
 - [Docker Compose Guide](https://docs.docker.com/compose/)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)

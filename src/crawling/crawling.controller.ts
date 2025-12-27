@@ -2,13 +2,15 @@ import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CrawlingService } from './crawling.service';
 import { CrawlingResultDto } from './dto/crawled-product.dto';
+import { RevolveCrawlDto } from './dto/revolve-crawl.dto';
+import { AsosCrawlDto } from './dto/asos-crawl.dto';
 import { Glasses } from '../database/entities/glasses.entity';
 import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('crawling')
 @Controller('crawling')
 export class CrawlingController {
-  constructor(private readonly crawlingService: CrawlingService) {}
+  constructor(private readonly crawlingService: CrawlingService) { }
 
   @Public()
   @Get('gentle-monster-glasses')
@@ -122,5 +124,51 @@ export class CrawlingController {
   async deleteGlasses(@Param('id') id: string): Promise<{ message: string }> {
     await this.crawlingService.deleteGlasses(id);
     return { message: 'Glasses deleted successfully' };
+  }
+
+  @Public()
+  @Post('revolve-clothing')
+  @ApiOperation({
+    summary: 'Crawl Revolve clothing items',
+    description: 'Crawls all clothing items from Revolve.com across multiple pages (default 121 pages)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully crawled Revolve clothing products',
+    type: CrawlingResultDto,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error during crawling',
+  })
+  async crawlRevolveClothing(
+    @Body() body: RevolveCrawlDto
+  ): Promise<CrawlingResultDto> {
+    const baseUrl = body?.baseUrl || 'https://www.revolve.com/clothing/br/3699fc/';
+    const maxPages = body?.maxPages || 121;
+    return this.crawlingService.crawlRevolveClothing(baseUrl, maxPages);
+  }
+
+  @Public()
+  @Post('asos-clothing')
+  @ApiOperation({
+    summary: 'Crawl ASOS clothing items',
+    description: 'Crawls all clothing items from ASOS.com across multiple pages (default 50 pages)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully crawled ASOS clothing products',
+    type: CrawlingResultDto,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error during crawling',
+  })
+  async crawlAsosClothing(
+    @Body() body: AsosCrawlDto
+  ): Promise<CrawlingResultDto> {
+    const baseUrl = body?.baseUrl || 'https://www.asos.com/women/ctas/usa-online-fashion-13/cat/?cid=16661';
+    const maxPages = body?.maxPages || 50;
+    return this.crawlingService.crawlAsosClothing(baseUrl, maxPages);
   }
 }

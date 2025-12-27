@@ -73,12 +73,15 @@ export class GlassesService {
     const hasNext = page < totalPages;
     const hasPrev = page > 1;
 
-    // Get favorite status for the user
-    const favorites = await this.favoriteRepository.find({
-      where: { userId },
-      select: ['glassesId'],
-    });
-    const favoriteGlassesIds = favorites.map((fav) => fav.glassesId);
+    // Get favorite status for the user (skip for anonymous users)
+    let favoriteGlassesIds: string[] = [];
+    if (userId && userId !== 'anonymous') {
+      const favorites = await this.favoriteRepository.find({
+        where: { userId },
+        select: ['glassesId'],
+      });
+      favoriteGlassesIds = favorites.map((fav) => fav.glassesId).filter((id): id is string => id !== undefined);
+    }
 
     // Transform to response DTOs
     const data = glasses.map((glass) =>
@@ -110,11 +113,14 @@ export class GlassesService {
       throw new NotFoundException(`Glasses with ID ${id} not found`);
     }
 
-    // Check if favorited by user
-    const favorite = await this.favoriteRepository.findOne({
-      where: { userId, glassesId: id },
-    });
-    const isFavorite = !!favorite;
+    // Check if favorited by user (skip for anonymous users)
+    let isFavorite = false;
+    if (userId && userId !== 'anonymous') {
+      const favorite = await this.favoriteRepository.findOne({
+        where: { userId, glassesId: id },
+      });
+      isFavorite = !!favorite;
+    }
 
     return GlassesResponseDto.fromEntity(glasses, isFavorite);
   }
@@ -128,12 +134,15 @@ export class GlassesService {
       order: { createdAt: 'DESC' },
     });
 
-    // Get favorite status for the user
-    const favorites = await this.favoriteRepository.find({
-      where: { userId },
-      select: ['glassesId'],
-    });
-    const favoriteGlassesIds = favorites.map((fav) => fav.glassesId);
+    // Get favorite status for the user (skip for anonymous users)
+    let favoriteGlassesIds: string[] = [];
+    if (userId && userId !== 'anonymous') {
+      const favorites = await this.favoriteRepository.find({
+        where: { userId },
+        select: ['glassesId'],
+      });
+      favoriteGlassesIds = favorites.map((fav) => fav.glassesId).filter((id): id is string => id !== undefined);
+    }
 
     return glasses.map((glass) =>
       GlassesResponseDto.fromEntity(
@@ -152,12 +161,15 @@ export class GlassesService {
       order: { createdAt: 'DESC' },
     });
 
-    // Get favorite status for the user
-    const favorites = await this.favoriteRepository.find({
-      where: { userId },
-      select: ['glassesId'],
-    });
-    const favoriteGlassesIds = favorites.map((fav) => fav.glassesId);
+    // Get favorite status for the user (skip for anonymous users)
+    let favoriteGlassesIds: string[] = [];
+    if (userId && userId !== 'anonymous') {
+      const favorites = await this.favoriteRepository.find({
+        where: { userId },
+        select: ['glassesId'],
+      });
+      favoriteGlassesIds = favorites.map((fav) => fav.glassesId).filter((id): id is string => id !== undefined);
+    }
 
     return glasses.map((glass) =>
       GlassesResponseDto.fromEntity(
@@ -375,9 +387,11 @@ export class GlassesService {
     const hasPrev = page > 1;
 
     // Transform to response DTOs (all are favorites for this user)
-    const data = favorites.map((favorite) =>
-      GlassesResponseDto.fromEntity(favorite.glasses, true),
-    );
+    const data = favorites
+      .filter((favorite) => favorite.glasses !== undefined)
+      .map((favorite) =>
+        GlassesResponseDto.fromEntity(favorite.glasses!, true),
+      );
 
     return {
       data,

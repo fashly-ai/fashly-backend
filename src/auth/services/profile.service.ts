@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../database/entities/user.entity';
 import { UpdateProfileDto, ProfileResponseDto, UpdateProfileResponseDto } from '../dto/profile.dto';
+import { UserImageService } from './user-image.service';
 
 @Injectable()
 export class ProfileService {
@@ -11,6 +12,7 @@ export class ProfileService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly userImageService: UserImageService,
   ) {}
 
   /**
@@ -25,7 +27,16 @@ export class ProfileService {
       throw new NotFoundException('User not found');
     }
 
-    return this.mapUserToProfileResponse(user);
+    // Get default image from user images
+    const defaultImage = await this.userImageService.getDefaultImage(userId);
+    const profileResponse = this.mapUserToProfileResponse(user);
+    
+    // Override profileImageUrl with default image if it exists
+    if (defaultImage) {
+      profileResponse.profileImageUrl = defaultImage.imageUrl;
+    }
+
+    return profileResponse;
   }
 
   /**

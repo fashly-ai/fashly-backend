@@ -84,6 +84,9 @@ services:
       # Redis Configuration (optional)
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      
+      # ComfyUI Configuration
+      COMFY_URL: http://comfyui:8000
     volumes:
       # Mount GCP service account key if using file-based auth
       - ${GCP_KEY_FILE_HOST_PATH:-./gcp-key.json}:${GCP_KEY_FILE:-/app/gcp-key.json}:ro
@@ -118,6 +121,32 @@ services:
       - fashionfy-network
     profiles:
       - with-nginx
+
+  # ComfyUI Service (Optional - only if you don't have ComfyUI running elsewhere)
+  comfyui:
+    image: ghcr.io/comfyanonymous/comfyui:latest
+    container_name: fashionfy-comfyui
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - CLI_ARGS=--listen 0.0.0.0 --port 8000 --enable-cors-header
+    networks:
+      - fashionfy-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu"]
+    runtime: nvidia
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - with-comfyui
 
 volumes:
   postgres_data:

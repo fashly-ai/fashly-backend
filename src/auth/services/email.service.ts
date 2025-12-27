@@ -20,21 +20,9 @@ export class EmailService {
   }
 
   private initializeTransporter(): void {
-    const isProduction = this.configService.get('NODE_ENV') === 'production';
     const useTestSmtp = this.configService.get('USE_TEST_SMTP', 'true') === 'true';
 
-    if (isProduction && !useTestSmtp) {
-      // Production SMTP configuration (you can configure your own SMTP here)
-      this.transporter = nodemailer.createTransport({
-        host: this.configService.get('SMTP_HOST', 'smtp.gmail.com'),
-        port: this.configService.get('SMTP_PORT', 587),
-        secure: false,
-        auth: {
-          user: this.configService.get('SMTP_USER'),
-          pass: this.configService.get('SMTP_PASS'),
-        },
-      });
-    } else {
+    if (useTestSmtp) {
       // Mailtrap SMTP server configuration for testing
       this.transporter = nodemailer.createTransport({
         host: 'sandbox.smtp.mailtrap.io',
@@ -45,9 +33,27 @@ export class EmailService {
           pass: 'ffdd5ada375bc9',
         },
       });
-    }
+      this.logger.log('Email service initialized with Mailtrap (test mode)');
+    } else {
+      // SMTP2Go configuration for production
+      const smtp2goUser = this.configService.get('SMTP2GO_USER');
+      const smtp2goPassword = this.configService.get('SMTP2GO_PASSWORD');
 
-    this.logger.log(`Email service initialized with ${useTestSmtp ? 'test' : 'production'} SMTP`);
+      if (!smtp2goUser || !smtp2goPassword) {
+        this.logger.warn('SMTP2Go credentials not configured. Email sending may fail.');
+      }
+
+      this.transporter = nodemailer.createTransport({
+        host: this.configService.get('SMTP2GO_HOST', 'mail.smtp2go.com'),
+        port: parseInt(this.configService.get('SMTP2GO_PORT', '2525'), 10),
+        secure: false, // TLS on port 2525
+        auth: {
+          user: smtp2goUser,
+          pass: smtp2goPassword,
+        },
+      });
+      this.logger.log('Email service initialized with SMTP2Go');
+    }
   }
 
   async sendOtpEmail(
@@ -209,7 +215,7 @@ export class EmailService {
   private async sendEmailViaSmtp(options: EmailOptions): Promise<void> {
     try {
       const mailOptions = {
-        from: this.configService.get('SMTP_FROM', 'testing@fashly.com'),
+        from: this.configService.get('SMTP_FROM', 'noreply@fashly.com'),
         to: options.to,
         subject: options.subject,
         text: options.text,
@@ -219,12 +225,14 @@ export class EmailService {
       const info = await this.transporter.sendMail(mailOptions);
       
       // Log email sending success
-      if (this.configService.get('USE_TEST_SMTP', 'true') === 'true') {
+      const useTestSmtp = this.configService.get('USE_TEST_SMTP', 'true') === 'true';
+      if (useTestSmtp) {
         this.logger.log(`📧 Email sent via Mailtrap to ${options.to}`);
         this.logger.log(`📧 Subject: ${options.subject}`);
         this.logger.log(`📧 Message ID: ${info.messageId}`);
       } else {
-        this.logger.log(`Email sent successfully: ${info.messageId}`);
+        this.logger.log(`📧 Email sent via SMTP2Go to ${options.to}`);
+        this.logger.log(`📧 Message ID: ${info.messageId}`);
       }
     } catch (error) {
       this.logger.error(`SMTP send failed:`, error);

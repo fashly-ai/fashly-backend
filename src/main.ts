@@ -51,7 +51,11 @@ async function bootstrap() {
     .addTag('profile', 'User profile management')
     .addTag('s3', 'File storage endpoints')
     .addTag('virtual-tryon', 'Virtual try-on AI endpoints')
+    .addTag('fashn', 'FASHN Virtual Try-On endpoints')
     .addTag('crawling', 'Web crawling endpoints')
+    .addTag('glasses', 'Glasses catalog endpoints')
+    .addTag('clothes', 'Clothes catalog endpoints')
+    .addTag('comfyui', 'ComfyUI image processing endpoints')
     .addTag('general', 'General API endpoints')
     .addServer(`http://localhost:${port}`, 'Development server')
     .addServer(`https://api.fashionfy.com`, 'Production server')
@@ -90,7 +94,16 @@ async function bootstrap() {
     `🕷️ Crawling endpoints: /crawling/gentle-monster-glasses`,
   );
   console.log(
-    `💡 Make sure to set HF_TOKEN environment variable for Hugging Face API`,
+    `🎨 ComfyUI endpoints: /api/comfyui/image2image, /api/comfyui/health`,
+  );
+  console.log(
+    `👕 FASHN endpoints: /api/fashn/tryon, /api/fashn/history`,
+  );
+  console.log(
+    `👔 Clothes endpoints: /api/clothes, /api/clothes/types/:type`,
+  );
+  console.log(
+    `💡 Make sure to set HF_TOKEN, COMFY_URL, and FASHN_API_KEY environment variables`,
   );
 
   // Log environment status
@@ -99,6 +112,13 @@ async function bootstrap() {
     console.log(`✅ HF_TOKEN is configured (${hfToken.substring(0, 8)}...)`);
   } else {
     console.log(`❌ HF_TOKEN is not set - please add it to your .env file`);
+  }
+
+  const fashnApiKey = configService.get<string>('FASHN_API_KEY');
+  if (fashnApiKey) {
+    console.log(`✅ FASHN_API_KEY is configured (${fashnApiKey.substring(0, 8)}...)`);
+  } else {
+    console.log(`❌ FASHN_API_KEY is not set - please add it to your .env file`);
   }
 }
 bootstrap();

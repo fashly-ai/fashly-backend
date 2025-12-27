@@ -7,7 +7,10 @@ import { AuthModule } from './auth/auth.module';
 import { S3Module } from './s3/s3.module';
 import { VirtualTryOnModule } from './virtual-tryon/virtual-tryon.module';
 import { CrawlingModule } from './crawling/crawling.module';
+import { ComfyUIModule } from './comfyui/comfyui.module';
 import { GlassesModule } from './glasses/glasses.module';
+import { ClothesModule } from './clothes/clothes.module';
+import { FashnModule } from './fashn/fashn.module';
 
 @Module({
   imports: [
@@ -21,6 +24,9 @@ import { GlassesModule } from './glasses/glasses.module';
     VirtualTryOnModule,
     CrawlingModule,
     GlassesModule,
+    ClothesModule,
+    ComfyUIModule,
+    FashnModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -30,6 +30,7 @@ import {
 } from './dto/favorite.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { User } from '../database/entities/user.entity';
 
 @ApiTags('glasses')
@@ -37,10 +38,9 @@ import { User } from '../database/entities/user.entity';
 export class GlassesController {
   constructor(private readonly glassesService: GlassesService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @Public()
   @Get()
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Get glasses with filtering, sorting, and search',
     description:
@@ -55,21 +55,17 @@ export class GlassesController {
     status: 400,
     description: 'Invalid query parameters',
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - JWT token required',
-  })
   async findAll(
     @Query() queryDto: GlassesQueryDto,
-    @CurrentUser() user: User,
+    @CurrentUser() user?: User,
   ): Promise<PaginatedGlassesResponseDto> {
-    return this.glassesService.findAll(queryDto, user.id);
+    const userId = user?.id || 'anonymous';
+    return this.glassesService.findAll(queryDto, userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Public()
   @Get('brands')
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Get available brands',
     description: 'Retrieve a list of all available glasses brands',
@@ -83,18 +79,13 @@ export class GlassesController {
       example: ['Ray-Ban', 'Oakley', 'Gucci', 'Prada'],
     },
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - JWT token required',
-  })
   async getAvailableBrands(): Promise<string[]> {
     return this.glassesService.getAvailableBrands();
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Public()
   @Get('categories')
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Get available categories',
     description: 'Retrieve a list of all available glasses categories',
@@ -108,18 +99,13 @@ export class GlassesController {
       example: ['Sunglasses', 'Prescription Glasses', 'Reading Glasses'],
     },
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - JWT token required',
-  })
   async getAvailableCategories(): Promise<string[]> {
     return this.glassesService.getAvailableCategories();
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Public()
   @Get('brand/:brand')
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Get glasses by brand',
     description:
@@ -136,24 +122,20 @@ export class GlassesController {
     type: [GlassesResponseDto],
   })
   @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - JWT token required',
-  })
-  @ApiResponse({
     status: 404,
     description: 'Brand not found',
   })
   async findByBrand(
     @Param('brand') brand: string,
-    @CurrentUser() user: User,
+    @CurrentUser() user?: User,
   ): Promise<GlassesResponseDto[]> {
-    return this.glassesService.findByBrand(brand, user.id);
+    const userId = user?.id || 'anonymous';
+    return this.glassesService.findByBrand(brand, userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Public()
   @Get('category/:category')
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Get glasses by category',
     description:
@@ -170,24 +152,20 @@ export class GlassesController {
     type: [GlassesResponseDto],
   })
   @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - JWT token required',
-  })
-  @ApiResponse({
     status: 404,
     description: 'Category not found',
   })
   async findByCategory(
     @Param('category') category: string,
-    @CurrentUser() user: User,
+    @CurrentUser() user?: User,
   ): Promise<GlassesResponseDto[]> {
-    return this.glassesService.findByCategory(category, user.id);
+    const userId = user?.id || 'anonymous';
+    return this.glassesService.findByCategory(category, userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Public()
   @Get(':id')
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Get glasses by ID',
     description:
@@ -208,18 +186,15 @@ export class GlassesController {
     description: 'Invalid UUID format',
   })
   @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - JWT token required',
-  })
-  @ApiResponse({
     status: 404,
     description: 'Glasses not found',
   })
   async findById(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: User,
+    @CurrentUser() user?: User,
   ): Promise<GlassesResponseDto> {
-    return this.glassesService.findById(id, user.id);
+    const userId = user?.id || 'anonymous';
+    return this.glassesService.findById(id, userId);
   }
 
   // Favorite endpoints

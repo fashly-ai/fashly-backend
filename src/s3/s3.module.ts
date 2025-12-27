@@ -1,8 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { S3Service } from './s3.service';
 import { S3Controller } from './s3.controller';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
+  imports: [forwardRef(() => AuthModule)],
   controllers: [S3Controller],
   providers: [S3Service],
   exports: [S3Service],
