@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
-export class CreateFashnHistoryTable1764476042478 implements MigrationInterface {
+export class CreateFashnHistoryTable1734000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create fashn_history table
     await queryRunner.createTable(
@@ -119,3 +119,4 @@ export class CreateFashnHistoryTable1764476042478 implements MigrationInterface 
     await queryRunner.dropTable('fashn_history');
   }
 }
+
