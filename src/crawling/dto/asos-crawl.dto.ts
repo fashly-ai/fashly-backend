@@ -24,6 +24,26 @@ export class AsosCrawlDto {
   @Min(1)
   @Max(100)
   maxPages?: number;
+
+  @ApiProperty({
+    description: 'Category for the clothing items being crawled',
+    example: 'Dresses',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiProperty({
+    description: 'Subcategory for the clothing items being crawled',
+    example: 'Partywear',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  subcategory?: string;
 }
+
+
 
 

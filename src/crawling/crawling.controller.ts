@@ -164,11 +164,18 @@ export class CrawlingController {
     status: 500,
     description: 'Internal server error during crawling',
   })
-  async crawlAsosClothing(
-    @Body() body: AsosCrawlDto
-  ): Promise<CrawlingResultDto> {
-    const baseUrl = body?.baseUrl || 'https://www.asos.com/women/ctas/usa-online-fashion-13/cat/?cid=16661';
+  async crawlAsosClothing(@Body() body: AsosCrawlDto): Promise<CrawlingResultDto> {
+    const baseUrl =
+      body?.baseUrl ||
+      'https://www.asos.com/women/ctas/usa-online-fashion-13/cat/?cid=16661';
     const maxPages = body?.maxPages || 50;
-    return this.crawlingService.crawlAsosClothing(baseUrl, maxPages);
+    const category = body?.category || 'ASOS';
+    const subcategory = body?.subcategory || undefined;
+    return this.crawlingService.crawlAsosClothing(
+      baseUrl,
+      maxPages,
+      category,
+      subcategory,
+    );
   }
 }

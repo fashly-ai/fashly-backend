@@ -248,7 +248,7 @@ export class CrawlingService {
       await new Promise(resolve => setTimeout(resolve, 3000));
 
       // Extract product data with multiple selector strategies
-      let products = await page.evaluate(() => {
+      const products = await page.evaluate(() => {
         // First strategy: Find all links to item pages and work backwards to find product containers
         const itemLinks = Array.from(document.querySelectorAll('a[href*="/item/"]'));
         console.log(`Found ${itemLinks.length} item links on the page`);
@@ -675,7 +675,7 @@ export class CrawlingService {
       this.logger.log(`Found ${productCount} sunglasses product elements`);
 
       // Extract product data using the same logic as glasses
-      let products = await page.evaluate(() => {
+      const products = await page.evaluate(() => {
         // Find all links to item pages and work backwards to find product containers
         const itemLinks = Array.from(document.querySelectorAll('a[href*="/item/"]'));
         console.log(`Found ${itemLinks.length} item links on the page`);
@@ -1268,7 +1268,17 @@ export class CrawlingService {
           });
 
           this.logger.log(`Found ${pageProducts.length} products on page ${pageNum}`);
-          allProducts.push(...pageProducts);
+          
+          // Save products from this page immediately to database
+          if (pageProducts.length > 0) {
+            this.logger.log(`Saving ${pageProducts.length} products from page ${pageNum} to database...`);
+            const savedFromPage = await this.saveClothesToDatabase(
+              pageProducts,
+              'Revolve',
+            );
+            this.logger.log(`Saved ${savedFromPage.length} products from page ${pageNum}`);
+            allProducts.push(...pageProducts);
+          }
 
           await page.close();
 
@@ -1287,9 +1297,7 @@ export class CrawlingService {
 
       await browser.close();
 
-      // Save products to database
-      const savedProducts = await this.saveClothesToDatabase(allProducts);
-
+      // Products were already saved after each page, just return the result
       const result: CrawlingResultDto = {
         products: allProducts.map(p => ({
           name: p.name,
@@ -1303,7 +1311,7 @@ export class CrawlingService {
       };
 
       this.logger.log(
-        `Revolve crawling completed. Found ${allProducts.length} products across ${maxPages} pages, saved ${savedProducts.length} to database.`,
+        `Revolve crawling completed. Found ${allProducts.length} products across ${maxPages} pages (saved incrementally after each page).`,
       );
       return result;
 
@@ -1333,6 +1341,8 @@ export class CrawlingService {
       price?: string;
       originalPrice?: string;
     }>,
+    category?: string,
+    subcategory?: string,
   ): Promise<Clothes[]> {
     this.logger.log(`Saving ${products.length} clothing items to database...`);
 
@@ -1402,6 +1412,12 @@ export class CrawlingService {
           existingCloth.additionalImages = additionalImages;
           existingCloth.price = parsedPrice;
           existingCloth.clothingType = clothingType;
+          if (category) {
+            existingCloth.category = category;
+          }
+          if (subcategory) {
+            existingCloth.subcategory = subcategory;
+          }
           existingCloth.updatedAt = new Date();
 
           const updated = await this.clothesRepository.save(existingCloth);
@@ -1418,7 +1434,8 @@ export class CrawlingService {
             price: parsedPrice,
             currency: this.extractCurrency(product.price || ''),
             clothingType,
-            category: 'Revolve',
+            category: category || 'General',
+            subcategory: subcategory || undefined,
             isActive: true,
             inStock: true,
           });
@@ -1496,8 +1513,10 @@ export class CrawlingService {
   async crawlAsosClothing(
     baseUrl: string = 'https://www.asos.com/women/ctas/usa-online-fashion-13/cat/?cid=16661',
     maxPages: number = 50,
+    category: string = 'ASOS',
+    subcategory?: string,
   ): Promise<CrawlingResultDto> {
-    this.logger.log(`Starting ASOS clothing crawling (up to ${maxPages} pages)...`);
+    this.logger.log(`Starting ASOS clothing crawling (up to ${maxPages} pages) for category: ${category}${subcategory ? `, subcategory: ${subcategory}` : ''}...`);
 
     let browser: Browser | undefined;
     const allProducts: Array<{
@@ -1783,7 +1802,18 @@ export class CrawlingService {
           });
 
           this.logger.log(`Found ${pageProducts.length} products on page ${pageNum}`);
-          allProducts.push(...pageProducts);
+          
+          // Save products from this page immediately to database
+          if (pageProducts.length > 0) {
+            this.logger.log(`Saving ${pageProducts.length} products from page ${pageNum} to database...`);
+            const savedFromPage = await this.saveClothesToDatabase(
+              pageProducts,
+              category,
+              subcategory,
+            );
+            this.logger.log(`Saved ${savedFromPage.length} products from page ${pageNum}`);
+            allProducts.push(...pageProducts);
+          }
 
           // Close page safely
           try {
@@ -1823,9 +1853,7 @@ export class CrawlingService {
         }
       }
 
-      // Save products to database
-      const savedProducts = await this.saveClothesToDatabase(allProducts);
-
+      // Products were already saved after each page, just return the result
       const result: CrawlingResultDto = {
         products: allProducts.map(p => ({
           name: p.name,
@@ -1839,7 +1867,7 @@ export class CrawlingService {
       };
 
       this.logger.log(
-        `ASOS crawling completed. Found ${allProducts.length} products across ${maxPages} pages, saved ${savedProducts.length} to database.`,
+        `ASOS crawling completed. Found ${allProducts.length} products across ${maxPages} pages (saved incrementally after each page).`,
       );
       return result;
 

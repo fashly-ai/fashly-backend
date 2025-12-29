@@ -54,7 +54,11 @@ export class Clothes {
   material?: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
+  @Index()
   category?: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  subcategory?: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   season?: string;
@@ -84,5 +88,3 @@ export class Clothes {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
-
-

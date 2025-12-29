@@ -1,7 +1,24 @@
 import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
-export class CreateFashnHistoryTable1734000000000 implements MigrationInterface {
+export class CreateFashnHistoryTable1734000000000
+  implements MigrationInterface
+{
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Check if table already exists
+    const tableExists = (await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'fashn_history'
+      );
+    `)) as Array<{ exists: boolean }>;
+
+    // If table already exists, skip this migration entirely
+    if (tableExists && tableExists[0] && tableExists[0].exists) {
+      console.log('Table fashn_history already exists, skipping migration');
+      return;
+    }
+
     // Create fashn_history table
     await queryRunner.createTable(
       new Table({
@@ -111,12 +128,21 @@ export class CreateFashnHistoryTable1734000000000 implements MigrationInterface 
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Drop indexes first
-    await queryRunner.dropIndex('fashn_history', 'IDX_fashn_history_user_id_created_at');
-    await queryRunner.dropIndex('fashn_history', 'IDX_fashn_history_user_id');
+    // Check if table exists before trying to drop
+    const tableExists = (await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'fashn_history'
+      );
+    `)) as Array<{ exists: boolean }>;
 
-    // Drop the table
+    if (!tableExists || !tableExists[0] || !tableExists[0].exists) {
+      console.log('Table fashn_history does not exist, skipping rollback');
+      return;
+    }
+
+    // Drop the table (indexes will be dropped automatically)
     await queryRunner.dropTable('fashn_history');
   }
 }
-
