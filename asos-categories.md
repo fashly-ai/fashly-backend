@@ -150,3 +150,4 @@ curl -X POST http://localhost:3000/crawling/asos-clothing \
 - Each category URL can be found by navigating to the ASOS website and inspecting the category page URL
 - The `cid` parameter in the URL represents the category ID
 
+

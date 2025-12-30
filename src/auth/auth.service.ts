@@ -216,28 +216,26 @@ export class AuthService {
     const { email, code } = verifyOtpDto;
 
     try {
-      // First, try to verify as sign-in
-      let verificationResult = await this.otpService.verifyOtp(
-        email,
-        code,
-        OtpType.SIGNIN,
-      );
-
+      // Check if user exists first to determine which OTP type to verify
+      const existingUser = await this.userRepository.findOne({ where: { email } });
+      
       let isNewUser = false;
       let user: User | null = null;
+      let verificationResult;
 
-      if (verificationResult.success) {
-        // Sign-in verification successful - user should exist
-        user = await this.userRepository.findOne({ where: { email } });
-        
-        if (!user) {
-          return {
-            success: false,
-            message: 'User account not found',
-          };
+      if (existingUser) {
+        // User exists - verify as sign-in
+        verificationResult = await this.otpService.verifyOtp(
+          email,
+          code,
+          OtpType.SIGNIN,
+        );
+
+        if (verificationResult.success) {
+          user = existingUser;
         }
       } else {
-        // Try to verify as sign-up
+        // User doesn't exist - verify as sign-up
         verificationResult = await this.otpService.verifyOtp(
           email,
           code,
