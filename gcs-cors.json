@@ -1,0 +1,21 @@
+[
+  {
+    "origin": [
+      "https://app.fashly.net",
+      "http://localhost:3000",
+      "http://localhost:3001"
+    ],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "responseHeader": [
+      "Content-Type",
+      "Content-Length",
+      "Content-MD5",
+      "Content-Disposition",
+      "Cache-Control",
+      "X-Goog-*"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]
+
+
